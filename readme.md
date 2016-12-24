@@ -7,7 +7,12 @@ Cargo.toml
     poolite = { git = "https://github.com/biluohc/poolite" }
 
 ## Example
+
+* use poolite::pool::new() create a thread_pool.  
+* poolite.Pool.spawn receive Box<FnMut() + Send>.  
+* while leave scope,pool will drop automatically.  
+
     extern crate poolite;
 
     let pool = poolite::Pool::new();
-    pool.spawn(Box::new(move || test(i)));
+    pool.spawn(Box::new(move || test(32)));

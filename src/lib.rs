@@ -70,10 +70,9 @@ impl Pool {
                 let _threads_counter = Counter::new(&water.threads);
 
                 loop {
-                    let mut tasks = water.tasks.lock().unwrap();//取得锁
-
                     let mut task;
                     loop {
+                        let mut tasks = water.tasks.lock().unwrap();// 取得锁                        
                         if let Some(poped_task) = tasks.pop_front() {
                             task = poped_task;// pop成功就break ,执行pop出的任务.
                             break;
@@ -82,7 +81,7 @@ impl Pool {
                         let _threads_waited_counter = Counter::new(&water.threads_waited);
 
                         match (&water.threads).load(Ordering::Acquire) {
-                            0...MIN_THREADS => tasks = water.condvar.wait(tasks).unwrap(), //线程总数<最小限制,不销毁线程.
+                            0...MIN_THREADS => {let _ = water.condvar.wait(tasks).unwrap();} //线程总数<最小限制,不销毁线程.
                             _ => {
                                 let (new_tasks, waitres) = water.condvar
                                     .wait_timeout(tasks, Duration::from_millis(THREAD_TIME_OUT_MS))
@@ -93,16 +92,17 @@ impl Pool {
                                 return;//销毁线程。
                             }
                         }
-                    }; // match 结束。
-                    } // loop 结束。
+                    }; // match 线程数结束。
+                    } // loop 取得任务结束。
                     task();//执行任务。
                 } // loop 结束。
-            }); //spawn 结束。
+            }); //spawn 线程结束。
 
         match spawn_res {
             Ok(_) => {}
             Err(e) => {
-                std_err(&format!("Warnig:spawn failed because of {} !", e.description()));
+                std_err(&format!("Poolite_Warnig:create new thread failed because of {} !",
+                                 e.description()));
             }
         };
     }
