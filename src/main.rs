@@ -1,23 +1,23 @@
 mod lib;
-use lib as pool;
+use lib as poolite;
 
 use std::time::Duration;
 use std::thread;
 
+// To observe the change of RAM occupy.
 fn main() {
-    println!("Hello, world!");
-    let pool = pool::Pool::new();
+    println!("Tset poolite !");
+    let pool = poolite::Pool::new();
 
     let mut count = 0;
     loop {
         if count == 100 {
             break;
         }
-        for i in 0..32 {
+        for i in 0..36 {
             print!("main_loop0: ");
             pool.spawn(Box::new(move || test(count, i)));
         }
-        thread::sleep(Duration::from_millis(1));
         count += 1;
     }
     count = 0;
@@ -27,15 +27,15 @@ fn main() {
         if count == 100 {
             break;
         }
-        for i in 0..20 {
+        for i in 0..32 {
             print!("main_loop1: ");
             pool.spawn(Box::new(move || test(count, i)));
         }
         thread::sleep(Duration::from_millis(100));
         count += 1;
     }
-    println!("loop1 finished ! Running a fib(20)");
-    pool.spawn(Box::new(move || test(count, 20)));
+    println!("loop1 finished !\nmain finished after sleep 6000 ms ! ");
+    thread::sleep(Duration::from_millis(6000));
     fn test(count: i32, msg: i32) {
         println!("count({})_fib({})={}", count, msg, fib(msg));
     }

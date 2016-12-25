@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use std::sync::{Arc, Mutex, Condvar};
 use std::sync::atomic::{Ordering, AtomicUsize};
 use std::collections::VecDeque;
@@ -51,12 +50,12 @@ impl Pool {
         //              (&self.water.threads).load(Ordering::Acquire),
         //              tasks_queue.len());
         // }
+        tasks_queue.push_back(task);
         if (&self.water.threads_waited).load(Ordering::Acquire) == 0 {
             self.add_thread();
         } else {
             self.water.condvar.notify_one();
         }
-        tasks_queue.push_back(task);
     }
 
     fn add_thread(&self) {
@@ -70,10 +69,10 @@ impl Pool {
                 let _threads_counter = Counter::new(&water.threads);
 
                 loop {
-                    let mut task;
+                    let mut task; //声明任务。
                     loop {
-                        let mut tasks = water.tasks.lock().unwrap();// 取得锁                        
-                        if let Some(poped_task) = tasks.pop_front() {
+                        let mut tasks_queue = water.tasks.lock().unwrap();// 取得锁                        
+                        if let Some(poped_task) = tasks_queue.pop_front() {
                             task = poped_task;// pop成功就break ,执行pop出的任务.
                             break;
                         }
@@ -81,14 +80,14 @@ impl Pool {
                         let _threads_waited_counter = Counter::new(&water.threads_waited);
 
                         match (&water.threads).load(Ordering::Acquire) {
-                            0...MIN_THREADS => {let _ = water.condvar.wait(tasks).unwrap();} //线程总数<最小限制,不销毁线程.
+                            0...MIN_THREADS => {let _ = water.condvar.wait(tasks_queue).unwrap();} //线程总数<最小限制,不销毁线程.
                             _ => {
-                                let (new_tasks, waitres) = water.condvar
-                                    .wait_timeout(tasks, Duration::from_millis(THREAD_TIME_OUT_MS))
+                                let (new_tasks_queue, waitres) = water.condvar
+                                    .wait_timeout(tasks_queue, Duration::from_millis(THREAD_TIME_OUT_MS))
                                     .unwrap();
-                                tasks = new_tasks;
+                               tasks_queue = new_tasks_queue;
                                // timed_out()为true时(等待超时是收不到通知就知道超时), 且队列空时销毁线程。
-                                if waitres.timed_out() &&tasks.is_empty(){
+                                if waitres.timed_out() &&tasks_queue.is_empty(){
                                 return;//销毁线程。
                             }
                         }
@@ -109,7 +108,7 @@ impl Pool {
 }
 impl Drop for Pool {
     fn drop(&mut self) {
-        // 被唤醒的线程,如果线程总数>线程最小限制就会陷入waited_out,然后线程销毁.
+        // 如果线程总数>线程最小限制且waited_out,然后线程销毁.
         self.water.threads.store(usize::max_value(), Ordering::Release);
         self.water.condvar.notify_all();
     }
@@ -136,6 +135,6 @@ impl<'a> Drop for Counter<'a> {
 fn std_err(msg: &str) {
     match writeln!(io::stderr(), "{}", msg) {    
         Ok(..) => {}
-        Err(e) => panic!("{}\n{}\n", msg, e.description()),
+        Err(_) => {}  //写入标准错误失败了不panic或继续尝试输出。
     };
 }
