@@ -10,7 +10,7 @@ Cargo.toml
 
 ## Explain 
 * use `poolite::pool::new()` create a thread_pool.  
-* `poolite.Pool.spawn()` receive `Box<FnMut() + Send>`.  
+* `spawn()` receive `Box<FnMut() + Send>`.  
 * while leave scope,pool will drop automatically.  
 
 ## Example  
