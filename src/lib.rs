@@ -1,7 +1,9 @@
+#[macro_use]
+extern crate stderr;
+
 use std::sync::{Arc, Mutex, Condvar};
 use std::sync::atomic::{Ordering, AtomicUsize};
 use std::collections::VecDeque;
-use std::io::{self, Write};
 use std::time::Duration;
 use std::error::Error;
 use std::thread;
@@ -100,15 +102,15 @@ impl Pool {
         match spawn_res {
             Ok(_) => {}
             Err(e) => {
-                std_err(&format!("Poolite_Warnig:create new thread failed because of {} !",
-                                 e.description()));
+                errstln!("Poolite_Warnig:create new thread failed because of {} !",
+                         e.description());
             }
         };
     }
 }
 impl Drop for Pool {
     fn drop(&mut self) {
-        // 如果线程总数>线程最小限制且waited_out,然后线程销毁.
+        // 如果线程总数>线程最小限制且waited_out且任务栈空,则线程销毁.
         self.water.threads.store(usize::max_value(), Ordering::Release);
         self.water.condvar.notify_all();
     }
@@ -130,11 +132,4 @@ impl<'a> Drop for Counter<'a> {
     fn drop(&mut self) {
         self.count.fetch_sub(1, Ordering::Release);
     }
-}
-// 格式化标准错误输出
-fn std_err(msg: &str) {
-    match writeln!(io::stderr(), "{}", msg) {    
-        Ok(..) => {}
-        Err(_) => {}  //写入标准错误失败了不panic或继续尝试输出。
-    };
 }

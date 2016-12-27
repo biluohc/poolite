@@ -1,10 +1,11 @@
-mod lib;
-use lib as poolite;
+extern crate poolite;
 
 use std::time::Duration;
 use std::thread;
 
-// To observe the change of RAM occupy.
+// To observe the change of CPU/RAM occupy.
+// cargo test >/dev/null
+#[test]
 fn main() {
     println!("Tset poolite !");
     let pool = poolite::Pool::new();
