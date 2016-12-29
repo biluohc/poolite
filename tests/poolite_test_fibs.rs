@@ -1,3 +1,4 @@
+#![allow(unused_variables)]
 extern crate poolite;
 
 use std::time::Duration;
@@ -16,7 +17,7 @@ fn main() {
             break;
         }
         for i in 0..36 {
-            print!("main_loop0: ");
+            // print!("main_loop0: ");
             pool.spawn(Box::new(move || test(count, i)));
         }
         count += 1;
@@ -29,7 +30,7 @@ fn main() {
             break;
         }
         for i in 0..32 {
-            print!("main_loop1: ");
+            // print!("main_loop1: ");
             pool.spawn(Box::new(move || test(count, i)));
         }
         thread::sleep(Duration::from_millis(100));
@@ -38,7 +39,8 @@ fn main() {
     println!("loop1 finished !\nmain finished after sleep 6000 ms ! ");
     thread::sleep(Duration::from_millis(6000));
     fn test(count: i32, msg: i32) {
-        println!("count({})_fib({})={}", count, msg, fib(msg));
+        // println!("count({})_fib({})={}", count, msg, fib(msg));
+        let _ = fib(msg);
     }
     fn fib(msg: i32) -> i32 {
         match msg {
