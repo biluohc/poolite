@@ -13,7 +13,7 @@ const MIN_THREADS: usize = 4;
 // 线程栈大小 4M
 const THREAD_STACK_SIZE: usize = 4 * 1024 * 1024;
 // 线程销毁时间 ms
-const THREAD_TIME_OUT_MS: u64 = 5000;
+const THREAD_TIME_OUT_MS: u64 = 7000;
 
 pub struct Pool {
     water: Arc<Water>,
@@ -45,14 +45,17 @@ impl Pool {
     }
 
     pub fn spawn(&self, task: Box<FnMut() + Send>) {
-        let mut tasks_queue = self.water.tasks.lock().unwrap();
-        // {
-        //     println!("\nPool_waits/threads: {}/{} ---tasks_queue:  {}",
-        //              (&self.water.threads_waited).load(Ordering::Acquire),
-        //              (&self.water.threads).load(Ordering::Acquire),
-        //              tasks_queue.len());
-        // }
-        tasks_queue.push_back(task);
+        {
+            // 减小锁的作用域。
+            let mut tasks_queue = self.water.tasks.lock().unwrap();
+            // {
+            //     println!("\nPool_waits/threads: {}/{} ---tasks_queue:  {}",
+            //              (&self.water.threads_waited).load(Ordering::Acquire),
+            //              (&self.water.threads).load(Ordering::Acquire),
+            //              tasks_queue.len());
+            // }
+            tasks_queue.push_back(task);
+        }
         if (&self.water.threads_waited).load(Ordering::Acquire) == 0 {
             self.add_thread();
         } else {
@@ -72,7 +75,7 @@ impl Pool {
 
                 loop {
                     let mut task; //声明任务。
-                    loop {
+                    loop { 
                         let mut tasks_queue = water.tasks.lock().unwrap();// 取得锁                        
                         if let Some(poped_task) = tasks_queue.pop_front() {
                             task = poped_task;// pop成功就break ,执行pop出的任务.
