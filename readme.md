@@ -32,20 +32,24 @@ or
 
 ## Example  
 ```Rust
-    extern crate poolite;  
+extern crate poolite;
 
-    fn main() {
-        let pool = poolite::Pool::new().run();  
-        pool.spawn(Box::new(move || test(32)));
-    
-        fn test(count: i32, msg: i32) {
-            println!("count({})_fib({})={}", count, msg, fib(msg));
-        }
-        fn fib(msg: i32) -> i32 {
-            match msg {
-                0...2 => 1,
-                x => fib(x - 1) + fib(x - 2),
-            }
+use std::time::Duration;
+use std::thread;
+
+fn main() {
+    let pool = poolite::Pool::new().run();
+    pool.spawn(Box::new(move || test(32)));
+
+    fn test(msg: i32) {
+        println!("fib({})={}", msg, fib(msg));
+    }
+    fn fib(msg: i32) -> i32 {
+        match msg {
+            0...2 => 1,
+            x => fib(x - 1) + fib(x - 2),
         }
     }
+    thread::sleep(Duration::from_millis(2000)); //wait for pool 2000ms
+}
 ```
