@@ -4,6 +4,11 @@
 Cargo.toml
 
 ```toml
+    [dependencies]
+    poolite = "0.2.0"
+```
+or
+```toml
     [dependencies]  
     poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.2.0" }
 ```
