@@ -1,7 +1,8 @@
 [package]
 name = "poolite"
-version = "0.1.4"
+version = "0.2.0"
 authors = ["biluohc <biluohc@outlook.com>"]
 
 [dependencies]
-stderr="0.2.1"
+stderr = "0.2.1"
+num_cpus = "1.0"

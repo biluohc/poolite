@@ -5,7 +5,7 @@ use std::time::SystemTime;
 use std::time::Duration;
 use std::thread;
 
-// cargo test -- --nocapture ,不阻止终端输出。
+// cargo test -- --nocapture,不阻止终端输出。
 // To observe the change of CPU/RAM occupy.
 const FOR: usize = 1;
 #[test]
@@ -16,7 +16,8 @@ fn main() {
         fibm();
     }
     let ed = SystemTime::now();
-    println!("{:?}", (ed.duration_since(st).unwrap()));
+    let sleeps = Duration::new(6, 0) * 2 * FOR as u32;
+    println!("{:?}", (ed.duration_since(st).unwrap() - sleeps));
 
 }
 fn fibm() {
@@ -34,8 +35,8 @@ fn fibm() {
         count += 1;
     }
     count = 0;
-    println!("loop0 finished ! and sleep 5000 ms ! ");
     thread::sleep(Duration::from_millis(5000));
+    println!("main_loop0 finished: ");
     loop {
         if count == 100 {
             break;
@@ -47,7 +48,7 @@ fn fibm() {
         thread::sleep(Duration::from_millis(100));
         count += 1;
     }
-    println!("loop1 finished ! main finished after sleep 6000 ms ! ");
+    println!("loop1 finished !\nmain finished after sleep 6000 ms ! ");
     thread::sleep(Duration::from_millis(6000));
     fn test(count: i32, msg: i32) {
         // println!("count({})_fib({})={}", count, msg, fib(msg));

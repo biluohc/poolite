@@ -5,11 +5,23 @@ Cargo.toml
 
 ```toml
     [dependencies]  
-    poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.1.3" }
+    poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.2.0" }
 ```
 
-## Explain 
-* use `poolite::pool::new()` create a thread_pool.  
+## Explain
+### Create a thread pool: 
+* use `poolite::pool::new()` create a thread_pool. 
+
+#### The following are optional: 
+* `min()` receive `usize` as minimum number of threads in pool,default is cpu's number.
+* `time_out()` receive `u64` as thread's idle time(ms) except minimum number of threads,default is 5000(ms).
+* `name()` receive `&str` as thread's name,default is None.
+* `stack_size()` receive `usize` as thread's stack_size,default depends on OS.
+
+### Let thread pool to start run:
+* `run()` let pool to start run.   
+
+### Add a task to the thread pool: 
 * `spawn()` receive `Box<FnMut() + Send>`.  
 * while leave scope,pool will drop automatically.  
 
@@ -17,6 +29,18 @@ Cargo.toml
 ```Rust
     extern crate poolite;  
 
-    let pool = poolite::Pool::new();  
-    pool.spawn(Box::new(move || test(32)));
+    fn main() {
+        let pool = poolite::Pool::new().run();  
+        pool.spawn(Box::new(move || test(32)));
+    
+        fn test(count: i32, msg: i32) {
+            println!("count({})_fib({})={}", count, msg, fib(msg));
+        }
+        fn fib(msg: i32) -> i32 {
+            match msg {
+                0...2 => 1,
+                x => fib(x - 1) + fib(x - 2),
+            }
+        }
+    }
 ```
