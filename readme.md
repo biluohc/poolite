@@ -34,15 +34,24 @@ or
 ```Rust
 extern crate poolite;
 
+use std::collections::BTreeMap;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::thread;
 
 fn main() {
     let pool = poolite::Pool::new().run();
-    pool.spawn(Box::new(move || test(32)));
-
-    fn test(msg: i32) {
-        println!("fib({})={}", msg, fib(msg));
+    let map = Arc::new(Mutex::new(BTreeMap::<i32, i32>::new()));
+    for i in 0..28 {
+        let map = map.clone();
+        pool.spawn(Box::new(move || test(i, map)));
+    }
+    fn test(msg: i32, map: Arc<Mutex<BTreeMap<i32, i32>>>) {
+        let res = fib(msg);
+        {
+            let mut maplock = map.lock().unwrap();
+            maplock.insert(msg, res);
+        }
     }
     fn fib(msg: i32) -> i32 {
         match msg {
@@ -51,5 +60,11 @@ fn main() {
         }
     }
     thread::sleep(Duration::from_millis(2000)); //wait for pool 2000ms
+    for (k, v) in map.lock().unwrap().iter() {
+        println!("key: {}\tvalue: {}", k, v);
+    }
 }
 ```
+## ChangLog
+* 2016-0102 0.2.1 use unstable `FnBox()` to support `FnOnce()`(Only support Nightly now,Stable or Beta should use 0.2.0).
+* 2016-0101 0.2.0 added `min(),time_out(),name(),stack_size(),run()` methods.
