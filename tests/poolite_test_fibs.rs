@@ -1,6 +1,9 @@
-#![allow(unused_variables)]
+#[macro_use]
+extern crate stderr;
 extern crate poolite;
 
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 use std::time::Duration;
 use std::thread;
@@ -10,17 +13,18 @@ use std::thread;
 const FOR: usize = 1;
 #[test]
 fn main() {
-    println!("Tset poolite !");
+    errln!("Tset poolite !");
     let st = SystemTime::now();
     for _ in 0..FOR {
         fibm();
     }
     let ed = SystemTime::now();
-    println!("{:?}", (ed.duration_since(st).unwrap()));
+    errln!("{:?}", (ed.duration_since(st).unwrap()));
 
 }
 fn fibm() {
     let pool = poolite::Pool::new().run();
+    let map = Arc::new(Mutex::new(HashMap::<i32, i32>::new()));
 
     let mut count = 0;
     loop {
@@ -28,30 +32,37 @@ fn fibm() {
             break;
         }
         for i in 0..36 {
-            // print!("main_loop0: ");
-            pool.spawn(Box::new(move || test(count, i)));
+            let map = map.clone();
+            pool.spawn(Box::new(move || test(i, map)));
         }
         count += 1;
     }
     count = 0;
-    println!("loop0 finished ! and sleep 5000 ms ! ");
+    errln!("loop0 finished ! and sleep 5000 ms ! ");
     thread::sleep(Duration::from_millis(5000));
     loop {
         if count == 100 {
             break;
         }
         for i in 0..32 {
-            // print!("main_loop1: ");
-            pool.spawn(Box::new(move || test(count, i)));
+            let map = map.clone();
+            pool.spawn(Box::new(move || test(i, map)));
         }
         thread::sleep(Duration::from_millis(100));
         count += 1;
     }
-    println!("loop1 finished ! main finished after sleep 6000 ms ! ");
+    errln!("loop1 finished ! main finished after sleep 6000 ms ! ");
     thread::sleep(Duration::from_millis(6000));
-    fn test(count: i32, msg: i32) {
-        // println!("count({})_fib({})={}", count, msg, fib(msg));
-        let _ = fib(msg);
+
+    for (k, v) in map.lock().unwrap().iter() {
+        println!("key: {}\tvalue: {}", k, v);
+    }
+    fn test(msg: i32, map: Arc<Mutex<HashMap<i32, i32>>>) {
+        let res = fib(msg);
+        {
+            let mut maplock = map.lock().unwrap();
+            maplock.insert(msg, res);
+        }
     }
     fn fib(msg: i32) -> i32 {
         match msg {

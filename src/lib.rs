@@ -1,3 +1,6 @@
+#![feature(fnbox)]
+use std::boxed::FnBox;
+
 #[macro_use]
 extern crate stderr;
 extern crate num_cpus;
@@ -22,7 +25,7 @@ pub struct Pool {
 }
 
 struct Water {
-    tasks: Mutex<VecDeque<Box<FnMut() + Send>>>,
+    tasks: Mutex<VecDeque<Box<FnBox() + Send>>>,
     condvar: Condvar,
     threads: AtomicUsize,
     threads_waited: AtomicUsize,
@@ -73,7 +76,7 @@ impl Pool {
         }
         self
     }
-    pub fn spawn(&self, task: Box<FnMut() + Send>) {
+    pub fn spawn(&self, task: Box<FnBox() + Send>) {
         {
             // 减小锁的作用域。
             let mut tasks_queue = self.water.tasks.lock().unwrap();
@@ -114,7 +117,7 @@ impl Pool {
                 let _threads_counter = Counter::new(&water.threads);
 
                 loop {
-                    let mut task; //声明任务。
+                    let task; //声明任务。
                     {
                         let mut tasks_queue = water.tasks.lock().unwrap();
                         // 移入内层loop=>解决全局锁问题；移出内层loop到单独的{}=>解决重复look()问题。

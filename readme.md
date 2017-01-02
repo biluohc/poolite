@@ -5,17 +5,17 @@ Cargo.toml
 
 ```toml
     [dependencies]
-    poolite = "0.2.0"
+    poolite = "0.2.1"
 ```
 or
 ```toml
     [dependencies]  
-    poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.2.0" }
+    poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.2.1" }
 ```
 
 ## Explain
 ### Create a thread pool: 
-* use `poolite::pool::new()` create a thread_pool. 
+* use `poolite::Pool::new()` create a thread_pool. 
 
 #### The following are optional: 
 * `min()` receive `usize` as minimum number of threads in pool,default is cpu's number.
@@ -27,7 +27,7 @@ or
 * `run()` let pool to start run.   
 
 ### Add a task to the thread pool: 
-* `spawn()` receive `Box<FnMut() + Send>`.  
+* `spawn()` receive `Box<Fn() + Send>`，`Box<FnMut() + Send>` and `Box<FnOnce() + Send>`(`Box<FnBox()+Send>`).  
 * while leave scope,pool will drop automatically.  
 
 ## Example  

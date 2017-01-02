@@ -1,6 +1,6 @@
 [package]
 name = "poolite"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["biluohc <biluohc@outlook.com>"]
 description = "A lite thread pool library."
 repository = "https://github.com/biluohc/poolite"
@@ -10,4 +10,8 @@ license = "MIT"
 
 [dependencies]
 stderr = "0.2.1"
-num_cpus = "1.0"
+num_cpus = "1.2.0"
+
+[[test]]
+name ="poolite_test_fibs"
+path="tests/poolite_test_fibs.rs"
