@@ -5,30 +5,40 @@ Cargo.toml
 
 ```toml
     [dependencies]
-    poolite = "0.2.1"
+    poolite = "0.3.0"
 ```
 or
 ```toml
     [dependencies]  
-    poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.2.1" }
+    poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.3.0" }
 ```
 
 ## Explain
-### Create a thread pool: 
+### Create a thread Pool: 
 * use `poolite::Pool::new()` create a thread_pool. 
 
 #### The following are optional: 
-* `min()` receive `usize` as minimum number of threads in pool,default is cpu's number.
+* `min()` receive `usize` as minimum number of threads in pool,default is cpu's number+1.
 * `time_out()` receive `u64` as thread's idle time(ms) except minimum number of threads,default is 5000(ms).
-* `name()` receive `&str` as thread's name,default is None.
+* `name()` receive `AsRef<str>` as thread's name,default is None.
 * `stack_size()` receive `usize` as thread's stack_size,default depends on OS.
+* `load_limit()` receive `usize` as the load_limit, pool will create new thread while `tasks_queue_len()/threads` bigger than it，default is cpu's number.  
+Ps:Pool will always block when `min()` is 0 and `load_limit()` is'not 0,until `tasks_queue_len()/threads` bigger than load_limit.
 
-### Let thread pool to start run:
+### Let Pool to start run:
 * `run()` let pool to start run.   
 
-### Add a task to the thread pool: 
-* `spawn()` receive `Box<Fn() + Send>`，`Box<FnMut() + Send>` and `Box<FnOnce() + Send>`(`Box<FnBox()+Send>`).  
-* while leave scope,pool will drop automatically.  
+### Add a task to the Pool: 
+* `spawn()` receive `Box<Fn() + Send + 'static>`，`Box<FnMut() + Send + 'static>` and `Box<FnOnce() + Send + 'static>`(`Box<FnBox() + Send + 'static>`). 
+
+### Get Pool's status  
+* `len()` return a usize of the thread'number in pool. 
+* `wait_len()` return a usize of the thread'number that is waiting  in pool  
+* `tasks_len()` return a usize of the length of the tasks_queue.  
+* `is_empty()` return a bool, all threads are waiting and tasks_queue'length is 0.  
+
+### Drop
+* while leave scope,pool will drop automatically.   
 
 ## Example  
 ```Rust
@@ -66,5 +76,6 @@ fn main() {
 }
 ```
 ## ChangLog
+* 2017-0112 0.3.0 remove all `unwrap()` and add `load_limit(),is_empty(), tasks_len(), len(), wait_len(), strong_count()` methods.
 * 2016-0102 0.2.1 use unstable `FnBox()` to support `FnOnce()`(Only support Nightly now,Stable or Beta should use 0.2.0).
-* 2016-0101 0.2.0 added `min(),time_out(),name(),stack_size(),run()` methods.
+* 2016-0101 0.2.0 add `min(),time_out(),name(),stack_size(),run()` methods.
