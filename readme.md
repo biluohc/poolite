@@ -23,7 +23,7 @@ or
 * `name()` receive `AsRef<str>` as thread's name,default is None.
 * `stack_size()` receive `usize` as thread's stack_size,default depends on OS.
 * `load_limit()` receive `usize` as the load_limit, pool will create new thread while `tasks_queue_len()/threads` bigger than it，default is cpu's number.  
-Ps:Pool will always block when `min()` is 0 and `load_limit()` is'not 0,until `tasks_queue_len()/threads` bigger than load_limit.
+Ps:  Pool will always block when `min()` is 0 and `load_limit()` is'not 0,until `tasks_queue_len()/threads` bigger than load_limit.
 
 ### Let Pool to start run:
 * `run()` let pool to start run(Add number of min threads to the pool).  
