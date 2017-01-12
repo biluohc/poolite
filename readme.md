@@ -26,7 +26,7 @@ or
 Ps:Pool will always block when `min()` is 0 and `load_limit()` is'not 0,until `tasks_queue_len()/threads` bigger than load_limit.
 
 ### Let Pool to start run:
-* `run()` let pool to start run.   
+* `run()` let pool to start run(Add number of min threads to the pool).  
 
 ### Add a task to the Pool: 
 * `spawn()` receive `Box<Fn() + Send + 'static>`，`Box<FnMut() + Send + 'static>` and `Box<FnOnce() + Send + 'static>`(`Box<FnBox() + Send + 'static>`). 
