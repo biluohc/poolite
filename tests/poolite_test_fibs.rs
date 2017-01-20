@@ -27,6 +27,7 @@ fn fibm() {
     let pool = poolite::Pool::new()
         .stack_size(3 * 1024 * 1024)
         .min(9)
+        .daemon(false)
         .time_out(5120)
         .run();
     let map = Arc::new(Mutex::new(BTreeMap::<i32, i32>::new()));
@@ -45,19 +46,19 @@ fn fibm() {
     errln!("is_empty(): {}\ttasks_len(): {}",
            pool.is_empty(),
            pool.tasks_len());
-    errln!("wait_len()/len()/strong_count()-1: {}/{}/{}\n",
+    errln!("wait_len()/len()/strong_count()-1[2]: {}/{}/{}\n",
            pool.wait_len(),
            pool.len(),
-           pool.strong_count() - 1);
+           pool.strong_count());
     thread::sleep(Duration::from_millis(5000));
     errln!("loop0 finished ! main slept 5000 ms ! ");
     errln!("is_empty(): {}\ttasks_len(): {}",
            pool.is_empty(),
            pool.tasks_len());
-    errln!("wait_len()/len()/strong_count()-1: {}/{}/{}\n",
+    errln!("wait_len()/len()/strong_count()-1[2]: {}/{}/{}\n",
            pool.wait_len(),
            pool.len(),
-           pool.strong_count() - 1);
+           pool.strong_count());
     count = 0;
     loop {
         if count == 100 {
@@ -75,10 +76,10 @@ fn fibm() {
     errln!("is_empty(): {}\ttasks_len(): {}",
            pool.is_empty(),
            pool.tasks_len());
-    errln!("wait_len()/len()/strong_count()-1: {}/{}/{}\n",
+    errln!("wait_len()/len()/strong_count()-1[2]: {}/{}/{}\n",
            pool.wait_len(),
            pool.len(),
-           pool.strong_count() - 1);
+           pool.strong_count());
     // errln!("wait mem decrease for pool sleep 12000ms");
     // thread::sleep(Duration::from_millis(12000));
     // pool.spawn(Box::new(move || panic!("spawn a panic!()")));
@@ -91,11 +92,10 @@ fn fibm() {
            pool.is_empty(),
            pool.tasks_len());
 
-    errln!("wait_len()/len()/strong_count()-1: {}/{}/{}\n",
+    errln!("wait_len()/len()/strong_count()-1[2]: {}/{}/{}\n",
            pool.wait_len(),
            pool.len(),
-           pool.strong_count() - 1);
-
+           pool.strong_count());
     fn test(msg: i32, map: Arc<Mutex<BTreeMap<i32, i32>>>) {
         let res = fib(msg);
         {

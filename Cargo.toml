@@ -1,15 +1,16 @@
 [package]
 name = "poolite"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["biluohc <biluohc@outlook.com>"]
 description = "A lite thread pool library."
 repository = "https://github.com/biluohc/poolite"
+documentation = "https://docs.rs/poolite/"
 readme = "readme.md"
 keywords = ["thread","pool","thread_pool","thread-pool"]
 license = "MIT"
 
 [dependencies]
-stderr = "0.3.0"
+stderr = "0.3.0" 
 num_cpus = "1.2.1"
 
 [[test]]

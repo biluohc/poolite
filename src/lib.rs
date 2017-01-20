@@ -1,264 +1,271 @@
+//! # [poolite](https://github.com/biluohc/poolite)
+//!  A lite thread pool library written for Rust.
+//!
+
+//! ## Usage
+//!
+//! On Cargo.toml:
+//!
+//! ```toml
+//!  [dependencies]
+//!  poolite = "0.4.0"
+//! ```
+//! or
+//!
+//! ```toml
+//!  [dependencies]
+//!  poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.4.0" }
+//! ```
+
+//! ## Example
+//!
+//! On code:
+//!
+//! ```
+//! extern crate poolite;
+//! use poolite::Pool;
+//!
+//! use std::collections::BTreeMap;
+//! use std::sync::{Arc, Mutex};
+//! use std::time::Duration;
+//! use std::thread;
+//!
+//! fn main() {
+//!     let pool = Pool::new().run();
+//!     let map = Arc::new(Mutex::new(BTreeMap::<i32, i32>::new()));
+//!     for i in 0..28 {
+//!         let map = map.clone();
+//!         pool.spawn(Box::new(move || test(i, map)));
+//!     }
+//!     loop {
+//!         thread::sleep(Duration::from_millis(100)); //wait for the pool 100ms.
+//!         if pool.is_empty() {
+//!             break;
+//!         }
+//!     }
+//!     for (k, v) in map.lock().unwrap().iter() {
+//!         println!("key: {}\tvalue: {}", k, v);
+//!     }
+//! }
+//!
+//! fn test(msg: i32, map: Arc<Mutex<BTreeMap<i32, i32>>>) {
+//!     let res = fib(msg);
+//!     {
+//!         let mut maplock = map.lock().unwrap();
+//!         maplock.insert(msg, res);
+//!     }
+//! }
+//!
+//! fn fib(msg: i32) -> i32 {
+//!     match msg {
+//!         0...2 => 1,
+//!         x => fib(x - 1) + fib(x - 2),
+//!     }
+//! }
+//! ```
+
 #![feature(fnbox)]
 use std::boxed::FnBox;
+use std::time::Duration;
 
 #[macro_use]
 extern crate stderr;
 extern crate num_cpus;
 
-use std::sync::{Arc, Mutex, RwLock, Condvar};
-use std::sync::atomic::{Ordering, AtomicUsize};
-use std::collections::VecDeque;
-use std::time::Duration;
-use std::error::Error;
-use std::thread;
-// use std::panic;
-
-// 默认初始化线程数由num_cpus决定。
 // 默认线程销毁超时时间 ms 。
-const TIME_OUT_MS: u64 = 5_000;
+// 默认开启 deamon 。
+// 默认初始化线程数由num_cpus决定。
+/// Defaults thread's idle time(ms).
+pub const TIME_OUT_MS: u64 = 5_000;
+/// Defaults open daemon.
+pub const DAEMON: bool = true;
 
+mod inner;
+use inner::ArcWater;
+
+/// Pool struct.
 pub struct Pool {
-    water: Arc<Water>,
-    name: Option<String>,
-    stack_size: Option<usize>,
-    load_limit: usize,
+    arc_water: ArcWater,
 }
-
-struct Water {
-    tasks: Mutex<VecDeque<Box<FnBox() + Send + 'static>>>,
-    condvar: Condvar,
-    threads: AtomicUsize,
-    threads_waited: AtomicUsize,
-    min_timeout: RwLock<(usize, u64)>,
-}
-
+/// # Creating and Settings
 impl Pool {
-    pub fn new() -> Pool {
-        let cpus_num = num_cpus::get();
-        Pool {
-            water: Arc::new(Water {
-                tasks: Mutex::new(VecDeque::new()),
-                condvar: Condvar::new(),
-                threads: AtomicUsize::new(0),
-                threads_waited: AtomicUsize::new(0),
-                min_timeout: RwLock::new((cpus_num + 1, TIME_OUT_MS)),
-            }),
-            name: None,
-            stack_size: None,
-            load_limit: cpus_num,
-        }
+    /// Creates and returns a Pool.
+    #[inline]
+    pub fn new() -> Self {
+        Pool { arc_water: ArcWater::new() }
     }
-    pub fn min(self, min: usize) -> Pool {
-        {
-            let mut rw_min_timeout = match self.water.min_timeout.write() {
-                Ok(ok) => ok,
-                Err(e) => e.into_inner(),
-            };
-            // err!("min({}): {:?} -> ", min, *rw_min_timeout);
-            let (.., timeout) = *rw_min_timeout;
-            *rw_min_timeout = (min, timeout);
-        }
-        // errln!("{:?}", *self.water.min_timeout.read().unwrap());
-        self
+
+    /// Returns the number of CPUs of the current machine.
+    ///
+    /// You can use it on `min()` or `load_limit()`.
+    #[inline]
+    pub fn num_cpus() -> usize {
+        ArcWater::num_cpus()
     }
-    pub fn time_out(self, time_out: u64) -> Pool {
-        {
-            let mut rw_min_timeout = match self.water.min_timeout.write() {
-                Ok(ok) => ok,
-                Err(e) => e.into_inner(),
-            };
-            // err!("time_out({}): {:?} -> ", time_out, *rw_min_timeout);
-            let (min, ..) = *rw_min_timeout;
-            *rw_min_timeout = (min, time_out);
-        }
-        // errln!("{:?}", *self.water.min_timeout.read().unwrap());
+
+    /// Sets whether to open the daemon for the Pool, the default is true。
+    #[inline]
+    pub fn daemon(self, daemon: bool) -> Self {
+        self.arc_water.daemon(daemon);
         self
     }
 
-    pub fn name<T: AsRef<str>>(mut self, name: T) -> Pool {
-        self.name = Some(name.as_ref().to_string());
+    /// Returns the value of `daemon(）`.
+    #[inline]
+    pub fn get_daemon(&self) -> bool {
+        self.arc_water.get_daemon()
+    }
+
+    /// Sets the minimum number of threads in the Pool，default is `num_cpus()+1`.
+    #[inline]
+    pub fn min(self, min: usize) -> Self {
+        self.arc_water.min(min);
         self
     }
-    pub fn stack_size(mut self, size: usize) -> Pool {
-        self.stack_size = Some(size);
+
+    /// Returns the value of the minimum number of threads in the Pool.
+    #[inline]
+    pub fn get_min(&self) -> usize {
+        self.arc_water.get_min()
+    }
+
+    ///  Sets thread's idle time(ms) except minimum number of threads,default is 5000(ms).
+    #[inline]
+    pub fn time_out(self, time_out: u64) -> Self {
+        self.arc_water.time_out(time_out);
         self
     }
-    pub fn load_limit(mut self, load_limit: usize) -> Pool {
-        self.load_limit = load_limit;
+
+    /// Returns the value of the thread's idle time(Duration).
+    #[inline]
+    pub fn get_time_out(&self) -> Duration {
+        self.arc_water.get_time_out()
+    }
+
+    /// Sets thread's name where them in the Pool,default is None.
+    #[inline]
+    pub fn name<T: AsRef<str>>(self, name: T) -> Self
+        where T: std::fmt::Debug
+    {
+        self.arc_water.name(name);
         self
     }
+
+    /// Returns thread's name.
+    #[inline]
+    pub fn get_name(&self) -> Option<String> {
+        self.arc_water.get_name()
+    }
+
+    /// Sets thread's stack_size where them in the Pool,default depends on OS.
+    #[inline]
+    pub fn stack_size(self, size: usize) -> Self {
+        self.arc_water.stack_size(size);
+        self
+    }
+
+    ///  Returns thread's stack_size.
+    #[inline]
+    pub fn get_stack_size(&self) -> Option<usize> {
+        self.arc_water.get_stack_size()
+    }
+
+    /// Sets the value of load_limit for the Pool,
+    ///
+    /// pool will create new thread while `tasks_queue_len()/threads` bigger than it，default is cpu's number.
+    ///
+    /// **Warning**: Pool maybe block when `min()` is 0 and `load_limit()` is'not 0,until `tasks_queue_len()/threads` bigger than load_limit.
+    #[inline]
+    pub fn load_limit(self, load_limit: usize) -> Self {
+        self.arc_water.load_limit(load_limit);
+        self
+    }
+
+    /// Returns the value of load_limit.
+    ///
+    /// ### Complete Example for Creating and Settings:
+    ///
+    /// ```Rust
+    /// extern crate poolite;
+    /// use poolite::Pool;
+    ///
+    /// let pool = Pool::new()
+    ///     .daemon(true)
+    ///     .min(Pool::num_cpus() + 1)
+    ///     .time_out(5000) //5000ms
+    ///     .name("name")
+    ///     .stack_size(2 * 1024 * 1024) //2MiB
+    ///     .load_limit(Pool::num_cpus())
+    ///     .run();
+    /// ```
+    ///
+    /// # Running and adding tasks
+    #[inline]
+    pub fn get_load_limit(&self) -> usize {
+        self.arc_water.get_load_limit()
+    }
+
     // 按理来说spawn够用了。对，不调用run也可以，只是开始反应会迟钝，因为线程还未创建。
-    pub fn run(self) -> Pool {
-        let ro_min = match self.water.min_timeout.read() {
-            Ok(ok) => ok.0,
-            Err(e) => e.into_inner().0,
-        };
-        for _ in 0..ro_min {
-            self.add_thread();
-        }
+    /// Lets the Pool to start running(Add the number of min threads to the pool).
+    #[inline]
+    pub fn run(self) -> Self {
+        self.arc_water.run();
         self
     }
-    pub fn is_empty(&self) -> bool {
-        // All threads are waiting and tasks_queue'length is 0.
-        self.wait_len() == self.len() && self.tasks_len() == 0
+
+    /// Adds a task to the Pool,
+    ///
+    /// it receives `Box<Fn() + Send + 'static>，Box<FnMut() + Send + 'static>` and
+    ///
+    ///  `Box<FnOnce() + Send + 'static>(Box<FnBox() + Send + 'static>)`.
+    /// # Status
+    #[inline]
+    pub fn spawn(&self, task: Box<FnBox() + Send + 'static>) {
+        self.arc_water.spawn(task);
     }
 
+    /// All threads are waiting and tasks_queue'length is 0.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.arc_water.is_empty()
+    }
+
+    /// Returns the length of the tasks_queue.
     #[inline]
     pub fn tasks_len(&self) -> usize {
-        match self.water.tasks.lock() {
-            Ok(ok) => ok.len(),
-            Err(e) => e.into_inner().len(),
-        }
+        self.arc_water.tasks_len()
     }
+
+    /// Approximately equal to `len()`.
     #[inline]
     pub fn strong_count(&self) -> usize {
-        Arc::strong_count(&self.water)
+        self.arc_water.strong_count()
     }
+
+    /// Returns the thread'number in the Pool.
     #[inline]
     pub fn len(&self) -> usize {
-        (&self.water.threads).load(Ordering::Acquire)
+        self.arc_water.len()
     }
+
+    /// Returns the thread'number that is waiting in the Pool
     #[inline]
     pub fn wait_len(&self) -> usize {
-        (&self.water.threads_waited).load(Ordering::Acquire)
-    }
-    // task'panic look like could'not to let Mutex be PoisonError,and counter will work nomally.
-    // pub fn once_panic(&self) -> bool {
-    //     // task once panic
-    //     self.water.tasks.is_poisoned()
-    // }
-    pub fn spawn(&self, task: Box<FnBox() + Send + 'static>) {
-        let tasks_queue_len = {
-            // 减小锁的作用域。
-            let mut tasks_queue = match self.water.tasks.lock() {
-                Ok(ok) => ok,
-                Err(e) => e.into_inner(),            
-            };
-            // {
-            //     errstln!("\nPool_waits/threads/strong_count-1(spawn): {}/{}/{} ---tasks_queue:  \
-            //               {}",
-            //              self.wait_len(),
-            //              self.len(),
-            //              self.strong_count() - 1,
-            //              tasks_queue.len());
-            // }
-            tasks_queue.push_back(task);
-            tasks_queue.len()
-        };
-        // 因为创建的线程有延迟，所有用 strong_count()-1 (pool本身持有一个引用)更合适，否则会创建一堆线程(白白浪费内存，性能还差！)。
-        // (&self.water.threads_waited).load(Ordering::Acquire) 在前性能好一些。
-        // 注意min==0 且 load_limit>0 时,线程池里无线程则前 load_limit 个请求会一直阻塞。
-        if self.wait_len() == 0 && tasks_queue_len / self.strong_count() > self.load_limit + 1 {
-            self.add_thread();
-        } else {
-            self.water.condvar.notify_one();
-        }
-    }
-
-    fn add_thread(&self) {
-        let water = self.water.clone();
-        // 线程命名。
-        let mut thread = match self.name.clone() {
-            Some(name) => thread::Builder::new().name(name),
-            None => thread::Builder::new(),
-        };
-        // 线程栈大小设置。
-        thread = match self.stack_size {
-            Some(size) => thread.stack_size(size),
-            None => thread,
-        };
-        // spawn 有延迟,必须等父线程阻塞才运行.
-        let spawn_res = thread
-            .spawn(move || {
-                let water = water;
-                // 对线程计数.
-                let _threads_counter = Counter::add(&water.threads);
-
-                loop {
-                    let task; //声明任务。
-                    {
-                    let mut tasks_queue = match water.tasks.lock() {
-                        Ok(ok) => ok,
-                        Err(e) => e.into_inner(),            
-                    };
-                        // 移入内层loop=>解决全局锁问题；移出内层loop到单独的{}=>解决重复look()问题。
-                    loop { 
-                        if let Some(poped_task) = tasks_queue.pop_front() {
-                            task = poped_task;// pop成功就break ,执行pop出的任务.
-                            break;
-                        }
-                        // 对在等候的线程计数.
-                        let _threads_waited_counter = Counter::add(&water.threads_waited);
-
-                        let (ro_min,ro_time_out) = match water.min_timeout.read() {
-                            Ok(ok) => *ok,
-                            Err(e) => *e.into_inner(),
-                        };
-                        let (new_tasks_queue, waitres) =match  water.condvar
-                                    .wait_timeout(tasks_queue, Duration::from_millis(ro_time_out)) {
-                                        Ok(ok)=>ok,
-                                        Err(e)=>e.into_inner(),
-                                    };
-                        tasks_queue=new_tasks_queue;
-                        // timed_out()为true时(等待超时是收不到通知就知道超时), 且队列空时销毁线程。
-                        if waitres.timed_out() && tasks_queue.is_empty() && (&water.threads).load(Ordering::Acquire) >ro_min { 
-                            // {
-                            //     errstln!("\nPool_waits/threads/strong_count-1(return): {}/{}/{} ---tasks_queue:  {}",
-                            //     (&water.threads_waited).load(Ordering::Acquire),
-                            //     (&water.threads).load(Ordering::Acquire),Arc::strong_count(&water)-1,
-                            //     tasks_queue.len()); 
-                            // }
-                            return; 
-                            }
-                            // }
-                    } // loop 取得任务结束。
-                    }
-                    // the trait `std::panic::UnwindSafe` is not implemented for `std::boxed::FnBox<(), Output=()> + std::marker::Send
-                    // let run_res = panic::catch_unwind(|| {
-                            task();/*执行任务。*/
-                    // });
-                } // loop 结束。
-            }); //spawn 线程结束。
-
-        match spawn_res {
-            Ok(..) => {}
-            Err(e) => {
-                errstln!("Poolite_Warnig: create new thread failed because of '{}' !",
-                         e.description())
-            }
-
-        };
+        self.arc_water.wait_len()
     }
 }
+// task'panic look like could'not to let Mutex be PoisonError,and counter will work nomally.
+// pub fn once_panic(&self) -> bool {
+//     // task once panic
+//     self.water.tasks.is_poisoned()
+// }
+
+
 impl Drop for Pool {
+    #[inline]
     fn drop(&mut self) {
-        // {
-        //     errstln!("\nPool_waits/threads/strong_count-1(drop): {}/{}/{} ---tasks_queue:  {}",
-        //              self.wait_len(),
-        //              self.len(),
-        //              self.strong_count() - 1,
-        //              self.tasks_len());
-        // }
         // 如果线程总数>线程最小限制且waited_out且任务栈空,则线程销毁.
-        self.water.threads.store(usize::max_value(), Ordering::Release);
-        self.water.condvar.notify_all();
-    }
-}
-
-// 通过作用域对线程数目计数。
-struct Counter<'a> {
-    count: &'a AtomicUsize,
-}
-
-impl<'a> Counter<'a> {
-    fn add(count: &'a AtomicUsize) -> Counter<'a> {
-        count.fetch_add(1, Ordering::Release);
-        Counter { count: count }
-    }
-}
-
-impl<'a> Drop for Counter<'a> {
-    fn drop(&mut self) {
-        self.count.fetch_sub(1, Ordering::Release);
+        self.arc_water.set_daemon(false);
+        self.arc_water.drop_pool();
     }
 }
