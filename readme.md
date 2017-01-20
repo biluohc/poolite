@@ -13,7 +13,7 @@ or
     poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.4.0" }
 ```
 
-## documentation  
+## Documentation  
 * Visit [https://docs.rs/poolite/](https://docs.rs/poolite/)  
 or 
 * Run `cargo doc --open` after modified the toml file.
