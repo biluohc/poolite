@@ -1,6 +1,6 @@
 [package]
 name = "poolite"
-version = "0.4.1"
+version = "0.4.2"
 authors = ["biluohc <biluohc@outlook.com>"]
 description = "A lite thread pool library."
 repository = "https://github.com/biluohc/poolite"
@@ -16,3 +16,4 @@ num_cpus = "1.2.1"
 [[test]]
 name ="poolite_test_fibs"
 path="tests/poolite_test_fibs.rs"
+

@@ -8,13 +8,13 @@
 //!
 //! ```toml
 //!  [dependencies]
-//!  poolite = "0.4.1"
+//!  poolite = "0.4.2"
 //! ```
 //! or
 //!
 //! ```toml
 //!  [dependencies]
-//!  poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.4.1" }
+//!  poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.4.2" }
 //! ```
 
 //! ## Example
@@ -278,5 +278,79 @@ impl Drop for Pool {
         // 如果线程总数>线程最小限制且waited_out且任务栈空,则线程销毁.
         self.arc_water.set_daemon(None);
         self.arc_water.drop_pool();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::collections::BTreeMap;
+    use std::sync::{Arc, Mutex};
+    use std::time::Duration;
+    use std::thread;
+    #[test]
+    fn main() {
+        assert!(Pool::num_cpus() == 1);
+        let pool = Pool::new();
+
+        assert!(Pool::num_cpus() >= 1);
+        assert_eq!(Some(Duration::from_millis(TIME_OUT_MS)), pool.get_daemon());
+        assert_eq!(Pool::num_cpus() + 1, pool.get_min());
+        assert_eq!(Duration::from_millis(TIME_OUT_MS), pool.get_time_out());
+        assert_eq!(None, pool.get_name());
+        assert_eq!(None, pool.get_stack_size());
+        assert_eq!(Pool::num_cpus() * Pool::num_cpus(), pool.get_load_limit());
+
+        let pool = pool.daemon(None)
+        .min(0)
+        .time_out(0) //5000ms
+        .name("name")
+        .stack_size(0) //2MiB
+        .load_limit(0)
+        .run();
+        let map = Arc::new(Mutex::new(BTreeMap::<i32, i32>::new()));
+        for i in 0..28 {
+            let map = map.clone();
+            pool.spawn(Box::new(move || test(i, map)));
+        }
+        loop {
+            thread::sleep(Duration::from_millis(100)); //wait for the pool 100ms.
+            if pool.is_empty() {
+                break;
+            }
+        }
+
+        for (k, v) in map.lock().unwrap().iter() {
+            println!("key: {}\tvalue: {}", k, v);
+        }
+        assert_eq!(None, pool.get_daemon());
+        assert_eq!(0, pool.get_min());
+        assert_eq!(Duration::from_millis(0), pool.get_time_out());
+        assert_eq!(Some("name".into()), pool.get_name());
+        assert_eq!(Some(0), pool.get_stack_size());
+        assert_eq!(0, pool.get_load_limit());
+
+        println!("name: {:?}", pool.get_name());
+        println!("daemon: {:?}", pool.get_daemon());
+        println!("min: {:?}", pool.get_min());
+        println!("load_limit: {:?}", pool.get_load_limit());
+        println!("stack_size: {:?}", pool.get_stack_size());
+        println!("time_out: {:?}", pool.get_time_out());
+    }
+
+    fn test(msg: i32, map: Arc<Mutex<BTreeMap<i32, i32>>>) {
+        let res = fib(msg);
+        {
+            let mut maplock = map.lock().unwrap();
+            maplock.insert(msg, res);
+        }
+    }
+
+    fn fib(msg: i32) -> i32 {
+        match msg {
+            0...2 => 1,
+            x => fib(x - 1) + fib(x - 2),
+        }
     }
 }

@@ -167,16 +167,21 @@ impl ArcWater {
             thread::Builder::new()
                 .spawn(move || {
                     loop {
-                        if arc_water.get_daemon().is_none() {
-                            break;
-                        }
-                        if let Some(s) = arc_water.get_daemon() {
-                            thread::sleep(s);
-                            if arc_water.strong_count() < arc_water.get_min() ||
-                               arc_water.strong_count() == 0 && arc_water.tasks_len() > 0 {
-                                arc_water.add_thread();
+                        // errstln!("daemon: {:?}\nstrong_count: {}\nlen: {}\ntasks_len: {}\n",
+                        //          arc_water.get_daemon(),
+                        //          arc_water.strong_count(),
+                        //          arc_water.len(),
+                        //          arc_water.tasks_len());
+                        match arc_water.get_daemon() {
+                            None => break,
+                            Some(s) => {
+                                thread::sleep(s);
+                                if arc_water.strong_count() < arc_water.get_min() ||
+                                   arc_water.strong_count() == 0 && arc_water.tasks_len() > 0 {
+                                    arc_water.add_thread();
+                                }
                             }
-                        }
+                        };
                     }
                 })
                 .unwrap();
@@ -234,7 +239,8 @@ impl ArcWater {
         // 因为创建的线程有延迟，所有用 strong_count()-1[2] (ArcWater本身和daemon各持有一个引用)更合适，否则会创建一堆线程(白白浪费内存，性能还差！)。
         // (&self.water.threads_waited).load(Ordering::Acquire) 在前性能好一些。
         // 注意min==0 且 load_limit>0 时,线程池里无线程则前 load_limit 个请求会一直阻塞。
-        if self.wait_len() == 0 && tasks_queue_len / self.strong_count() > self.get_load_limit() {
+        let count = self.strong_count();
+        if count == 0 || self.wait_len() == 0 && tasks_queue_len / count > self.get_load_limit() {
             self.add_thread();
         } else {
             self.water.condvar.notify_one();
