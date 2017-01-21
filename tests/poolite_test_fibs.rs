@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate stderr;
 extern crate poolite;
+use poolite::Pool;
 
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
@@ -24,11 +25,12 @@ fn main() {
     // thread::sleep(Duration::from_millis(12000));
 }
 fn fibm() {
-    let pool = poolite::Pool::new()
+    let pool = Pool::new()
         .stack_size(3 * 1024 * 1024)
         .min(9)
-        .daemon(false)
+        .daemon(None)
         .time_out(5120)
+        .load_limit(Pool::num_cpus() * Pool::num_cpus())
         .run();
     let map = Arc::new(Mutex::new(BTreeMap::<i32, i32>::new()));
 

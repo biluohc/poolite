@@ -8,8 +8,6 @@ use std::thread;
 
 use super::*;
 
-static mut NUM_CPUS: usize = 1;
-
 pub struct ArcWater {
     water: Arc<Water>,
 }
@@ -24,7 +22,7 @@ pub struct Water {
     name: RwLock<Option<String>>,
     stack_size: RwLock<Option<usize>>,
     load_limit: RwLock<usize>,
-    daemon: RwLock<bool>,
+    daemon: RwLock<Option<Duration>>,
 }
 
 impl Clone for ArcWater {
@@ -52,24 +50,27 @@ impl ArcWater {
                 time_out: RwLock::new(Duration::from_millis(TIME_OUT_MS)),
                 name: RwLock::new(None),
                 stack_size: RwLock::new(None),
-                load_limit: RwLock::new(Self::num_cpus()),
-                daemon: RwLock::new(DAEMON),
+                load_limit: RwLock::new(Self::num_cpus() * Self::num_cpus()),
+                daemon: RwLock::new(Some(Duration::from_millis(TIME_OUT_MS))),
             }),
         }
     }
     #[inline]
-    pub fn daemon(&self, daemon: bool) {
+    pub fn daemon(&self, daemon: Option<u64>) {
         self.set_daemon(daemon);
     }
-    pub fn set_daemon(&self, daemon: bool) {
+    pub fn set_daemon(&self, daemon: Option<u64>) {
         let mut rw_daemon = match self.water.daemon.write() {
             Ok(ok) => ok,
             Err(e) => e.into_inner(),
         };
-        *rw_daemon = daemon;
+        *rw_daemon = match daemon {
+            None => None,
+            Some(s) => Some(Duration::from_millis(s)),
+        };
     }
     #[inline]
-    pub fn get_daemon(&self) -> bool {
+    pub fn get_daemon(&self) -> Option<Duration> {
         let ro_daemon = match self.water.daemon.read() {
             Ok(ok) => ok,
             Err(e) => e.into_inner(),
@@ -161,18 +162,20 @@ impl ArcWater {
         for _ in 0..self.get_min() {
             self.add_thread();
         }
-        if self.get_daemon() {
+        if self.get_daemon().is_some() {
             let arc_water = self.clone();
             thread::Builder::new()
                 .spawn(move || {
                     loop {
-                        if !arc_water.get_daemon() {
+                        if arc_water.get_daemon().is_none() {
                             break;
                         }
-                        thread::sleep(arc_water.get_time_out());
-                        if arc_water.strong_count() < arc_water.get_min() ||
-                           arc_water.strong_count() == 0 && arc_water.tasks_len() > 0 {
-                            arc_water.add_thread();
+                        if let Some(s) = arc_water.get_daemon() {
+                            thread::sleep(s);
+                            if arc_water.strong_count() < arc_water.get_min() ||
+                               arc_water.strong_count() == 0 && arc_water.tasks_len() > 0 {
+                                arc_water.add_thread();
+                            }
                         }
                     }
                 })
@@ -194,7 +197,7 @@ impl ArcWater {
     }
     #[inline]
     pub fn strong_count(&self) -> usize {
-        let one_two = if self.get_daemon() { 2 } else { 1 };
+        let one_two = if self.get_daemon().is_some() { 2 } else { 1 };
         Arc::strong_count(&self.water) - one_two
     }
     #[inline]

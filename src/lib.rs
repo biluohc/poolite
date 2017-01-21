@@ -8,13 +8,13 @@
 //!
 //! ```toml
 //!  [dependencies]
-//!  poolite = "0.4.0"
+//!  poolite = "0.4.1"
 //! ```
 //! or
 //!
 //! ```toml
 //!  [dependencies]
-//!  poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.4.0" }
+//!  poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.4.1" }
 //! ```
 
 //! ## Example
@@ -76,9 +76,10 @@ extern crate num_cpus;
 // 默认开启 deamon 。
 // 默认初始化线程数由num_cpus决定。
 /// Defaults thread's idle time(ms).
-pub const TIME_OUT_MS: u64 = 5_000;
+const TIME_OUT_MS: u64 = 5_000;
 /// Defaults open daemon.
-pub const DAEMON: bool = true;
+// const DAEMON: Option<Duration> = Some(Duration::from_millis(TIME_OUT_MS));
+static mut NUM_CPUS: usize = 1;
 
 mod inner;
 use inner::ArcWater;
@@ -98,21 +99,27 @@ impl Pool {
     /// Returns the number of CPUs of the current machine.
     ///
     /// You can use it on `min()` or `load_limit()`.
+    ///
+    /// Maybe you also need `std::usize::MIN` or `std::usize::MAX`.
+    ///
+    /// **Warning**: It  be initialized by `new()`,Don't use it before `new()`(Otherwise it will return 1).
     #[inline]
     pub fn num_cpus() -> usize {
         ArcWater::num_cpus()
     }
 
-    /// Sets whether to open the daemon for the Pool, the default is true。
+    /// Sets whether to open the daemon for the Pool, the default is Some(5000)(thread's default idle time(ms)).
+    ///
+    /// You can use `None` to close.
     #[inline]
-    pub fn daemon(self, daemon: bool) -> Self {
+    pub fn daemon(self, daemon: Option<u64>) -> Self {
         self.arc_water.daemon(daemon);
         self
     }
 
     /// Returns the value of `daemon(）`.
     #[inline]
-    pub fn get_daemon(&self) -> bool {
+    pub fn get_daemon(&self) -> Option<Duration> {
         self.arc_water.get_daemon()
     }
 
@@ -142,7 +149,7 @@ impl Pool {
         self.arc_water.get_time_out()
     }
 
-    /// Sets thread's name where them in the Pool,default is None.
+    /// Sets thread's name where them in the Pool,default is None(`'<unnamed>'`).
     #[inline]
     pub fn name<T: AsRef<str>>(self, name: T) -> Self
         where T: std::fmt::Debug
@@ -172,7 +179,7 @@ impl Pool {
 
     /// Sets the value of load_limit for the Pool,
     ///
-    /// pool will create new thread while `tasks_queue_len()/threads` bigger than it，default is cpu's number.
+    /// pool will create new thread while `tasks_queue_len()/threads` bigger than it，default is `num_cpus()* num_cpus()`.
     ///
     /// **Warning**: Pool maybe block when `min()` is 0 and `load_limit()` is'not 0,until `tasks_queue_len()/threads` bigger than load_limit.
     #[inline]
@@ -190,21 +197,23 @@ impl Pool {
     /// use poolite::Pool;
     ///
     /// let pool = Pool::new()
-    ///     .daemon(true)
+    ///     .daemon(Some(5000))
     ///     .min(Pool::num_cpus() + 1)
     ///     .time_out(5000) //5000ms
     ///     .name("name")
     ///     .stack_size(2 * 1024 * 1024) //2MiB
-    ///     .load_limit(Pool::num_cpus())
+    ///     .load_limit(Pool::num_cpus() * Pool::num_cpus())
     ///     .run();
     /// ```
     ///
-    /// # Running and adding tasks
     #[inline]
     pub fn get_load_limit(&self) -> usize {
         self.arc_water.get_load_limit()
     }
+}
 
+/// # Running and adding tasks
+impl Pool {
     // 按理来说spawn够用了。对，不调用run也可以，只是开始反应会迟钝，因为线程还未创建。
     /// Lets the Pool to start running(Add the number of min threads to the pool).
     #[inline]
@@ -218,12 +227,14 @@ impl Pool {
     /// it receives `Box<Fn() + Send + 'static>，Box<FnMut() + Send + 'static>` and
     ///
     ///  `Box<FnOnce() + Send + 'static>(Box<FnBox() + Send + 'static>)`.
-    /// # Status
     #[inline]
     pub fn spawn(&self, task: Box<FnBox() + Send + 'static>) {
         self.arc_water.spawn(task);
     }
+}
 
+/// # Status
+impl Pool {
     /// All threads are waiting and tasks_queue'length is 0.
     #[inline]
     pub fn is_empty(&self) -> bool {
@@ -265,7 +276,7 @@ impl Drop for Pool {
     #[inline]
     fn drop(&mut self) {
         // 如果线程总数>线程最小限制且waited_out且任务栈空,则线程销毁.
-        self.arc_water.set_daemon(false);
+        self.arc_water.set_daemon(None);
         self.arc_water.drop_pool();
     }
 }
