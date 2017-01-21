@@ -1,6 +1,6 @@
 [root]
 name = "poolite"
-version = "0.4.1"
+version = "0.4.3"
 dependencies = [
  "num_cpus 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "stderr 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -8,7 +8,7 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.19"
+version = "0.2.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
@@ -16,7 +16,7 @@ name = "num_cpus"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "libc 0.2.19 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.20 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -25,6 +25,6 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [metadata]
-"checksum libc 0.2.19 (registry+https://github.com/rust-lang/crates.io-index)" = "9e030dc72013ed68994d1b2cbf36a94dd0e58418ba949c4b0db7eeb70a7a6352"
+"checksum libc 0.2.20 (registry+https://github.com/rust-lang/crates.io-index)" = "684f330624d8c3784fb9558ca46c4ce488073a8d22450415c5eb4f4cfb0d11b5"
 "checksum num_cpus 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "a225d1e2717567599c24f88e49f00856c6e825a12125181ee42c4257e3688d39"
 "checksum stderr 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "6a2ffe57c17a4dd6da8c05800acdef0b73445ab47e8d8e4117060e54087c2a0e"

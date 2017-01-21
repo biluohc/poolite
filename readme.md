@@ -5,12 +5,12 @@ Cargo.toml
 
 ```toml
     [dependencies]
-    poolite = "0.4.2"
+    poolite = "0.4.3"
 ```
 or
 ```toml
     [dependencies]  
-    poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.4.2" }
+    poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.4.3" }
 ```
 
 ## Documentation  
@@ -19,6 +19,7 @@ or
 * Run `cargo doc --open` after modified the toml file.
 
 ## ChangLog
+* 2017-0121 0.4.3 Fix the document about `load_limit()`,the bug about block already fixed by last commit.
 * 2017-0121 0.4.2 Fix a bug `attempt to divide by zero` and complete tests.
 * 2017-0121 0.4.1 Remove constants's `pub`,modified `daemon()`(bool->Option<64>),change the default value of load_limit and reorder the document.
 * 2017-0120 0.4.0 add `daemon()` ,`num_cpus()` methods, and move documentation to [doc.rs](https://docs.rs/poolite/).

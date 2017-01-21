@@ -8,13 +8,13 @@
 //!
 //! ```toml
 //!  [dependencies]
-//!  poolite = "0.4.2"
+//!  poolite = "0.4.3"
 //! ```
 //! or
 //!
 //! ```toml
 //!  [dependencies]
-//!  poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.4.2" }
+//!  poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.4.3" }
 //! ```
 
 //! ## Example
@@ -179,9 +179,9 @@ impl Pool {
 
     /// Sets the value of load_limit for the Pool,
     ///
-    /// pool will create new thread while `tasks_queue_len()/threads` bigger than it，default is `num_cpus()* num_cpus()`.
+    /// The pool will create new thread while `strong_count() == 0` or `tasks_queue_len()/strong_count()` bigger than it，
     ///
-    /// **Warning**: Pool maybe block when `min()` is 0 and `load_limit()` is'not 0,until `tasks_queue_len()/threads` bigger than load_limit.
+    /// default is `num_cpus() * num_cpus()`.
     #[inline]
     pub fn load_limit(self, load_limit: usize) -> Self {
         self.arc_water.load_limit(load_limit);
