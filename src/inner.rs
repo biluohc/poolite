@@ -18,6 +18,7 @@ pub struct Water {
     pub threads: AtomicUsize,
     threads_waited: AtomicUsize,
     min: RwLock<usize>,
+    max: RwLock<usize>,
     time_out: RwLock<Duration>,
     name: RwLock<Option<String>>,
     stack_size: RwLock<Option<usize>>,
@@ -36,8 +37,11 @@ impl ArcWater {
         unsafe { NUM_CPUS }
     }
     pub fn new() -> Self {
-        unsafe {
-            NUM_CPUS = num_cpus::get();
+        let num_cpus = num_cpus::get();
+        if Self::num_cpus() != num_cpus {
+            unsafe {
+                NUM_CPUS = num_cpus;
+            }
         }
         ArcWater {
             water: Arc::new(Water {
@@ -47,6 +51,7 @@ impl ArcWater {
                 threads_waited: AtomicUsize::new(0),
 
                 min: RwLock::new(Self::num_cpus() + 1),
+                max: RwLock::new(std::usize::MAX),
                 time_out: RwLock::new(Duration::from_millis(TIME_OUT_MS)),
                 name: RwLock::new(None),
                 stack_size: RwLock::new(None),
@@ -91,6 +96,21 @@ impl ArcWater {
             Err(e) => e.into_inner(),
         };
         *ro_min
+    }
+    pub fn max(&self, max: usize) {
+        let mut rw_max = match self.water.max.write() {
+            Ok(ok) => ok,
+            Err(e) => e.into_inner(),
+        };
+        *rw_max = max;
+    }
+    #[inline]
+    pub fn get_max(&self) -> usize {
+        let ro_max = match self.water.max.read() {
+            Ok(ok) => ok,
+            Err(e) => e.into_inner(),
+        };
+        *ro_max
     }
     pub fn time_out(&self, time_out: u64) {
         let mut rw_time_out = match self.water.time_out.write() {
@@ -240,7 +260,9 @@ impl ArcWater {
         // (&self.water.threads_waited).load(Ordering::Acquire) 在前性能好一些。
         // 注意min==0 且 load_limit>0 时,线程池里无线程则前 load_limit 个请求会一直阻塞。
         let count = self.strong_count();
-        if count == 0 || self.wait_len() == 0 && tasks_queue_len / count > self.get_load_limit() {
+        if count == 0 ||
+           count <= self.get_max() && self.wait_len() == 0 &&
+           tasks_queue_len / count > self.get_load_limit() {
             self.add_thread();
         } else {
             self.water.condvar.notify_one();
