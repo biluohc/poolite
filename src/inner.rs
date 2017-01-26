@@ -185,24 +185,22 @@ impl ArcWater {
         if self.get_daemon().is_some() {
             let arc_water = self.clone();
             thread::Builder::new()
-                .spawn(move || {
-                    loop {
-                        // errstln!("daemon: {:?}\nstrong_count: {}\nlen: {}\ntasks_len: {}\n",
-                        //          arc_water.get_daemon(),
-                        //          arc_water.strong_count(),
-                        //          arc_water.len(),
-                        //          arc_water.tasks_len());
-                        match arc_water.get_daemon() {
-                            None => break,
-                            Some(s) => {
-                                thread::sleep(s);
-                                if arc_water.strong_count() < arc_water.get_min() ||
-                                   arc_water.strong_count() == 0 && arc_water.tasks_len() > 0 {
-                                    arc_water.add_thread();
-                                }
+                .spawn(move || loop {
+                    dbstln!("\nPoolite_daemon: {:?}/strong_count: {}/len: {}/tasks_len: {}",
+                            arc_water.get_daemon(),
+                            arc_water.strong_count(),
+                            arc_water.len(),
+                            arc_water.tasks_len());
+                    match arc_water.get_daemon() {
+                        None => break,
+                        Some(s) => {
+                            thread::sleep(s);
+                            if arc_water.strong_count() < arc_water.get_min() ||
+                               arc_water.strong_count() == 0 && arc_water.tasks_len() > 0 {
+                                arc_water.add_thread();
                             }
-                        };
-                    }
+                        }
+                    };
                 })
                 .unwrap();
         }
@@ -245,14 +243,14 @@ impl ArcWater {
                 Ok(ok) => ok,
                 Err(e) => e.into_inner(),            
             };
-            // {
-            //     errstln!("\nPoolite_waits/threads/strong_count-1[2](spawn): {}/{}/{} \
-            //               ---tasks_queue:  {}",
-            //                self.wait_len(),
-            //                self.len(),
-            //                self.strong_count(),
-            //                tasks_queue.len());
-            // }
+            {
+                dbstln!("\nPoolite_waits/threads/strong_count-1[2](spawn): {}/{}/{} \
+                          ---tasks_queue:  {}",
+                        self.wait_len(),
+                        self.len(),
+                        self.strong_count(),
+                        tasks_queue.len());
+            }
             tasks_queue.push_back(task);
             tasks_queue.len()
         };
@@ -312,13 +310,13 @@ impl ArcWater {
                         tasks_queue=new_tasks_queue;
                         // timed_out()为true时(等待超时是收不到通知就知道超时), 且队列空时销毁线程。
                         if waitres.timed_out() && tasks_queue.is_empty() && arc_water.len() >arc_water.get_min() { 
-                            // {
-                            //     errstln!("\nPoolite_waits/threads/strong_count-1[2](before_return): {}/{}/{} ---tasks_queue:  {}",
-                            //     arc_water.wait_len(),
-                            //     arc_water.len(),
-                            //     arc_water.strong_count(),
-                            //      tasks_queue.len());
-                            // }
+                            {
+                                dbstln!("\nPoolite_waits/threads/strong_count-1[2](before_return): {}/{}/{} ---tasks_queue:  {}",
+                                arc_water.wait_len(),
+                                arc_water.len(),
+                                arc_water.strong_count(),
+                                 tasks_queue.len());
+                            }
                             return; 
                             }
                     } // loop 取得任务结束。
@@ -340,14 +338,14 @@ impl ArcWater {
         };
     }
     pub fn drop_pool(&mut self) {
-        // {
-        //     errstln!("\nPool_waits/threads/strong_count-1[2](drop): {}/{}/{} ---tasks_queue:  \
-        //                 {}",
-        //                self.wait_len(),
-        //                self.len(),
-        //                self.strong_count(),
-        //                self.tasks_len());
-        // }
+        {
+            dbstln!("\nPool_waits/threads/strong_count-1[2](drop): {}/{}/{} ---tasks_queue:  \
+                        {}",
+                    self.wait_len(),
+                    self.len(),
+                    self.strong_count(),
+                    self.tasks_len());
+        }
         self.water.threads.store(usize::max_value(), Ordering::Release);
         self.water.condvar.notify_all();
     }

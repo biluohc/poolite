@@ -70,6 +70,7 @@ use std::time::Duration;
 
 #[macro_use]
 extern crate stderr;
+use stderr::Loger;
 extern crate num_cpus;
 
 // 默认线程销毁超时时间 ms 。
@@ -94,6 +95,7 @@ impl Pool {
     ///
     #[inline]
     pub fn new() -> Self {
+        init!();
         Pool { arc_water: ArcWater::new() }
     }
 

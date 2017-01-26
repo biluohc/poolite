@@ -10,7 +10,7 @@ keywords = ["thread","pool","thread_pool","thread-pool"]
 license = "MIT"
 
 [dependencies]
-stderr = "0.5.0" 
+stderr = "0.6.1"
 num_cpus = "1.2.1"
 
 [[test]]

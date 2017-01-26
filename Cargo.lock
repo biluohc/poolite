@@ -3,7 +3,7 @@ name = "poolite"
 version = "0.4.4"
 dependencies = [
  "num_cpus 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "stderr 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "stderr 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -21,10 +21,10 @@ dependencies = [
 
 [[package]]
 name = "stderr"
-version = "0.5.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [metadata]
 "checksum libc 0.2.20 (registry+https://github.com/rust-lang/crates.io-index)" = "684f330624d8c3784fb9558ca46c4ce488073a8d22450415c5eb4f4cfb0d11b5"
 "checksum num_cpus 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "a225d1e2717567599c24f88e49f00856c6e825a12125181ee42c4257e3688d39"
-"checksum stderr 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "b79410ab2bd4aa99764ba07b0539f1502bcaff643640d92cbd3ed6d93ff7dd26"
+"checksum stderr 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)" = "f44ceb2de565da02af0fad7b3b1332b6cb4abd62b755b8b021b94f05bbf145eb"
