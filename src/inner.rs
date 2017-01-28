@@ -177,15 +177,13 @@ impl ArcWater {
         };
         *ro_load_limit
     }
-    // 按理来说spawn够用了。对，不调用run也可以，只是开始反应会迟钝，因为线程还未创建。
-    pub fn run(&self) {
+    pub fn run(&self) -> Result<(), std::io::Error> {
         for _ in 0..self.get_min() {
             self.add_thread();
         }
         if self.get_daemon().is_some() {
             let arc_water = self.clone();
-            thread::Builder::new()
-                .spawn(move || loop {
+            thread::Builder::new().spawn(move || loop {
                     dbstln!("\nPoolite_daemon: {:?}/strong_count: {}/len: {}/tasks_len: {}",
                             arc_water.get_daemon(),
                             arc_water.strong_count(),
@@ -201,9 +199,9 @@ impl ArcWater {
                             }
                         }
                     };
-                })
-                .unwrap();
+                })?;
         }
+        Ok(())
     }
     #[inline]
     pub fn is_empty(&self) -> bool {
@@ -328,14 +326,10 @@ impl ArcWater {
                 } // loop 结束。
             }); //spawn 线程结束。
 
-        match spawn_res {
-            Ok(..) => {}
-            Err(e) => {
-                errstln!("Poolite_Warnig: add thread failed because of '{}' !",
-                         e.description())
-            }
-
-        };
+        if let Err(e) = spawn_res {
+            errstln!("Poolite_Warnig: add thread failed because of '{}' !",
+                     e.description());
+        }
     }
     pub fn drop_pool(&mut self) {
         {

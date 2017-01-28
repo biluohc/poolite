@@ -1,6 +1,6 @@
 [package]
 name = "poolite"
-version = "0.4.4"
+version = "0.5.0"
 authors = ["biluohc <biluohc@outlook.com>"]
 description = "A lite thread pool library."
 repository = "https://github.com/biluohc/poolite"

@@ -31,7 +31,8 @@ fn fibm() {
         .daemon(None)
         .time_out(5120)
         .load_limit(Pool::num_cpus() * Pool::num_cpus())
-        .run();
+        .run()
+        .unwrap();
     let map = Arc::new(Mutex::new(BTreeMap::<i32, i32>::new()));
 
     let mut count = 0;

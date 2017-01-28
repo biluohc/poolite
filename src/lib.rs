@@ -8,13 +8,13 @@
 //!
 //! ```toml
 //!  [dependencies]
-//!  poolite = "0.4.4"
+//!  poolite = "0.5.0"
 //! ```
 //! or
 //!
 //! ```toml
 //!  [dependencies]
-//!  poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.4.4" }
+//!  poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.5.0" }
 //! ```
 
 //! ## Example
@@ -31,7 +31,7 @@
 //! use std::thread;
 //!
 //! fn main() {
-//!     let pool = Pool::new().run();
+//!     let pool = Pool::new().run().unwrap();
 //!     let map = Arc::new(Mutex::new(BTreeMap::<i32, i32>::new()));
 //!     for i in 0..28 {
 //!         let map = map.clone();
@@ -85,7 +85,7 @@ static mut NUM_CPUS: usize = 1;
 mod inner;
 use inner::ArcWater;
 
-/// Pool struct.
+/// The Pool struct.
 pub struct Pool {
     arc_water: ArcWater,
 }
@@ -118,6 +118,7 @@ impl Pool {
     ///
     /// You can use `None` to close.
     ///
+    /// **Warning**: If you tasks maybe `panic`,please don't close it.
     #[inline]
     pub fn daemon(self, daemon: Option<u64>) -> Self {
         self.arc_water.daemon(daemon);
@@ -226,6 +227,7 @@ impl Pool {
     /// extern crate poolite;
     /// use poolite::Pool;
     ///
+    /// fn main() {
     /// let pool = Pool::new()
     ///     .daemon(Some(5000))
     ///     .min(Pool::num_cpus() + 1)
@@ -234,7 +236,9 @@ impl Pool {
     ///     .name("name")
     ///     .stack_size(2 * 1024 * 1024) //2MiB
     ///     .load_limit(Pool::num_cpus() * Pool::num_cpus())
-    ///     .run();
+    ///     .run()
+    ///     .unwrap();
+    /// }
     /// ```
     ///
     #[inline]
@@ -243,15 +247,38 @@ impl Pool {
     }
 }
 
-/// # Running and adding tasks
+/// # Running and adding tasks.
 impl Pool {
-    // 按理来说spawn够用了。对，不调用run也可以，只是开始反应会迟钝，因为线程还未创建。
-    /// Lets the Pool to start running(Add the number of min threads to the pool).
+    /// Lets the Pool to start running:
     ///
+    /// * Add the number of min threads to the pool.
+    ///
+    /// * Add the daemon thread for the pool(if dont't close it).
+    ///
+    /// returns `Err<PoolError>` if the pool spawning the daemon thread fails.
+    ///
+    /// So if you close the daemon,`unwrap()` is safe.
+    ///
+    /// You maybe need `IntoPool` or `IntoIOResult`(trait).
+    ///
+    /// ```Rust
+    /// extern crate poolite;
+    /// use poolite::Pool;
+    /// use poolite::{IntoPool, IntoIOResult};
+    ///
+    /// fn fun() -> std::io::Result<()> {
+    ///     let pool = Pool::new().run().into_pool();
+    ///     let pool_nodaemon = Pool::new().daemon(None).unwrap();
+    ///     let pool_io_rst = Pool::new().run().into_iorst()?;
+    ///     Ok(())
+    /// }
+    ///```
     #[inline]
-    pub fn run(self) -> Self {
-        self.arc_water.run();
-        self
+    pub fn run(self) -> Result<Self, PoolError> {
+        if let Err(s) = self.arc_water.run() {
+            return Err(PoolError::new(self, s));
+        }
+        Ok(self)
     }
 
     /// Adds a task to the Pool,
@@ -263,6 +290,14 @@ impl Pool {
     #[inline]
     pub fn spawn(&self, task: Box<FnBox() + Send + 'static>) {
         self.arc_water.spawn(task);
+    }
+    ///
+    /// Manually add threads(Do not need to use it generally).
+    #[inline]
+    pub fn add_thread(&self, num: usize) {
+        for _ in 0..num {
+            self.arc_water.add_thread();
+        }
     }
 }
 
@@ -311,13 +346,86 @@ impl Pool {
 //     self.water.tasks.is_poisoned()
 // }
 
-
 impl Drop for Pool {
     #[inline]
     fn drop(&mut self) {
         // 如果线程总数>线程最小限制且waited_out且任务栈空,则线程销毁.
         self.arc_water.set_daemon(None);
         self.arc_water.drop_pool();
+    }
+}
+
+use std::fmt::{self, Debug, Display};
+use std::error::Error;
+
+/// The error type for the pool's `run()` if the pool spawning the daemon thread fails.
+pub struct PoolError {
+    pool: Pool,
+    error: std::io::Error,
+}
+impl PoolError {
+    fn new(pool: Pool, error: std::io::Error) -> Self {
+        PoolError {
+            pool: pool,
+            error: error,
+        }
+    }
+    ///  Into `Pool`
+    pub fn into_inner(self) -> Pool {
+        self.pool
+    }
+    /// Into `std::io::Error`
+    pub fn into_error(self) -> std::io::Error {
+        self.error
+    }
+}
+
+impl Error for PoolError {
+    fn description(&self) -> &str {
+        self.error.description()
+    }
+}
+
+impl Debug for PoolError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use std::error::Error;
+        write!(f,
+               "PoolError {{ pool : Pool, err : {:?} }}",
+               self.error.description())
+    }
+}
+impl Display for PoolError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use std::error::Error;
+        write!(f,
+               "PoolError {{ pool : Pool, err : {} }}",
+               self.error.description())
+    }
+}
+
+/// Into `Pool` for `Result<Pool, PoolError>`
+pub trait IntoPool {
+    fn into_pool(self) -> Pool;
+}
+impl IntoPool for Result<Pool, PoolError> {
+    fn into_pool(self) -> Pool {
+        match self {
+            Ok(o) => o,
+            Err(e) => e.into_inner(),
+        }
+    }
+}
+
+/// Into `std::io::Result<Pool>` for `Result<Pool, PoolError>`
+pub trait IntoIOResult {
+    fn into_iorst(self) -> std::io::Result<Pool>;
+}
+impl IntoIOResult for Result<Pool, PoolError> {
+    fn into_iorst(self) -> std::io::Result<Pool> {
+        match self {
+            Ok(o) => Ok(o),
+            Err(e) => Err(e.into_error()),
+        }
     }
 }
 
@@ -350,7 +458,8 @@ mod tests {
         .name("name")
         .stack_size(0) //2MiB
         .load_limit(0)
-        .run();
+        .run()
+        .unwrap();
         let map = Arc::new(Mutex::new(BTreeMap::<i32, i32>::new()));
         for i in 0..33 {
             let map = map.clone();
@@ -385,7 +494,7 @@ mod tests {
         println!("load_limit: {:?}", pool.get_load_limit());
         println!("stack_size: {:?}", pool.get_stack_size());
         println!("time_out: {:?}", pool.get_time_out());
-        let pool = Pool::new().max(0).run();
+        let pool = Pool::new().max(0).run().unwrap();
         thread::sleep(Duration::from_millis(100)); //wait for the pool 100ms.
         errln!("len()/strong_count()/min()/max(0): {}/{}/{}/{}",
                pool.len(),
