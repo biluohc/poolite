@@ -5,12 +5,12 @@ Cargo.toml
 
 ```toml
     [dependencies]
-    poolite = "0.5.0"
+    poolite = "0.5.1"
 ```
 or
 ```toml
     [dependencies]  
-    poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.5.0" }
+    poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.5.1" }
 ```
 
 ## Documentation  
@@ -19,6 +19,8 @@ or
 * Run `cargo doc --open` after modified the toml file.
 
 ## ChangLog
+* 2017-0129 0.5.1 add `add_threads()` method,complete `daemon()` method.
+
 * 2017-0128 0.5.0 update API, `run(self)->self` to `run(self)->Result<Self, PoolError>`, add `IntoPool` and `IntoIOResult`(trait).
 
 * 2017-0123 0.4.4 add `max()` method to set maximum number of threads.

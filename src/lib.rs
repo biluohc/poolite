@@ -8,13 +8,13 @@
 //!
 //! ```toml
 //!  [dependencies]
-//!  poolite = "0.5.0"
+//!  poolite = "0.5.1"
 //! ```
 //! or
 //!
 //! ```toml
 //!  [dependencies]
-//!  poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.5.0" }
+//!  poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.5.1" }
 //! ```
 
 //! ## Example
@@ -65,6 +65,9 @@
 //! ```
 
 #![feature(fnbox)]
+#![feature(unboxed_closures)]
+#![feature(type_ascription)]
+
 use std::boxed::FnBox;
 use std::time::Duration;
 
@@ -291,10 +294,15 @@ impl Pool {
     pub fn spawn(&self, task: Box<FnBox() + Send + 'static>) {
         self.arc_water.spawn(task);
     }
+    // #[inline]
+    // pub fn add_task(&self, task: &(FnOnce() + Send + 'static)) {
+    //     let task: Box<FnBox() + Send + 'static> = Box::new(*task);
+    //     self.arc_water.spawn(task);
+    // }
     ///
     /// Manually add threads(Do not need to use it generally).
     #[inline]
-    pub fn add_thread(&self, num: usize) {
+    pub fn add_threads(&self, num: usize) {
         for _ in 0..num {
             self.arc_water.add_thread();
         }
@@ -340,17 +348,10 @@ impl Pool {
         self.arc_water.wait_len()
     }
 }
-// task'panic look like could'not to let Mutex be PoisonError,and counter will work nomally.
-// pub fn once_panic(&self) -> bool {
-//     // task once panic
-//     self.water.tasks.is_poisoned()
-// }
 
 impl Drop for Pool {
     #[inline]
     fn drop(&mut self) {
-        // 如果线程总数>线程最小限制且waited_out且任务栈空,则线程销毁.
-        self.arc_water.set_daemon(None);
         self.arc_water.drop_pool();
     }
 }
@@ -364,6 +365,7 @@ pub struct PoolError {
     error: std::io::Error,
 }
 impl PoolError {
+    #[inline]
     fn new(pool: Pool, error: std::io::Error) -> Self {
         PoolError {
             pool: pool,
@@ -371,10 +373,12 @@ impl PoolError {
         }
     }
     ///  Into `Pool`
+    #[inline]
     pub fn into_inner(self) -> Pool {
         self.pool
     }
     /// Into `std::io::Error`
+    #[inline]
     pub fn into_error(self) -> std::io::Error {
         self.error
     }
@@ -408,6 +412,7 @@ pub trait IntoPool {
     fn into_pool(self) -> Pool;
 }
 impl IntoPool for Result<Pool, PoolError> {
+    #[inline]
     fn into_pool(self) -> Pool {
         match self {
             Ok(o) => o,
@@ -421,6 +426,7 @@ pub trait IntoIOResult {
     fn into_iorst(self) -> std::io::Result<Pool>;
 }
 impl IntoIOResult for Result<Pool, PoolError> {
+    #[inline]
     fn into_iorst(self) -> std::io::Result<Pool> {
         match self {
             Ok(o) => Ok(o),

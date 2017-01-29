@@ -184,17 +184,29 @@ impl ArcWater {
         if self.get_daemon().is_some() {
             let arc_water = self.clone();
             thread::Builder::new().spawn(move || loop {
-                    dbstln!("\nPoolite_daemon: {:?}/strong_count: {}/len: {}/tasks_len: {}",
-                            arc_water.get_daemon(),
-                            arc_water.strong_count(),
-                            arc_water.len(),
-                            arc_water.tasks_len());
                     match arc_water.get_daemon() {
                         None => break,
                         Some(s) => {
                             thread::sleep(s);
-                            if arc_water.strong_count() < arc_water.get_min() ||
-                               arc_water.strong_count() == 0 && arc_water.tasks_len() > 0 {
+                            dbstln!("Poolite_waits/threads/strong_count-1[2](before_daemon): \
+                                     {}/{}/{} ---tasks_queue: {} /daemon({:?})",
+                                    arc_water.wait_len(),
+                                    arc_water.len(),
+                                    arc_water.strong_count(),
+                                    arc_water.tasks_len(),
+                                    arc_water.get_daemon());
+                            //'attempt to subtract with overflow'
+                            let min = arc_water.get_min();
+                            let strong_count = arc_water.strong_count();
+                            let add_num = if min > strong_count {
+                                min - strong_count
+                            } else {
+                                0
+                            };
+                            for _ in 0..add_num {
+                                arc_water.add_thread();
+                            }
+                            if arc_water.strong_count() == 0 && arc_water.tasks_len() > 0 {
                                 arc_water.add_thread();
                             }
                         }
@@ -229,11 +241,6 @@ impl ArcWater {
     pub fn wait_len(&self) -> usize {
         (&self.water.threads_waited).load(Ordering::Acquire)
     }
-    // task'panic look like could'not to let Mutex be PoisonError,and counter will work nomally.
-    // pub fn once_panic(&self) -> bool {
-    //     // task once panic
-    //     self.water.tasks.is_poisoned()
-    // }
     pub fn spawn(&self, task: Box<FnBox() + Send + 'static>) {
         let tasks_queue_len = {
             // 减小锁的作用域。
@@ -242,7 +249,7 @@ impl ArcWater {
                 Err(e) => e.into_inner(),            
             };
             {
-                dbstln!("\nPoolite_waits/threads/strong_count-1[2](spawn): {}/{}/{} \
+                dbstln!("Poolite_waits/threads/strong_count-1[2](before_spawn): {}/{}/{} \
                           ---tasks_queue:  {}",
                         self.wait_len(),
                         self.len(),
@@ -309,7 +316,7 @@ impl ArcWater {
                         // timed_out()为true时(等待超时是收不到通知就知道超时), 且队列空时销毁线程。
                         if waitres.timed_out() && tasks_queue.is_empty() && arc_water.len() >arc_water.get_min() { 
                             {
-                                dbstln!("\nPoolite_waits/threads/strong_count-1[2](before_return): {}/{}/{} ---tasks_queue:  {}",
+                                dbstln!("Poolite_waits/threads/strong_count-1[2](before_return): {}/{}/{} ---tasks_queue:  {}",
                                 arc_water.wait_len(),
                                 arc_water.len(),
                                 arc_water.strong_count(),
@@ -333,13 +340,14 @@ impl ArcWater {
     }
     pub fn drop_pool(&mut self) {
         {
-            dbstln!("\nPool_waits/threads/strong_count-1[2](drop): {}/{}/{} ---tasks_queue:  \
-                        {}",
+            dbstln!("Pool_waits/threads/strong_count-1[2](before_drop): {}/{}/{} \
+                     ---tasks_queue:  {}",
                     self.wait_len(),
                     self.len(),
                     self.strong_count(),
                     self.tasks_len());
         }
+        self.set_daemon(None);
         self.water.threads.store(usize::max_value(), Ordering::Release);
         self.water.condvar.notify_all();
     }
