@@ -4,6 +4,7 @@ use std::collections::VecDeque;
 use std::time::Duration;
 use std::error::Error;
 use std::thread;
+
 // use std::panic;
 
 use super::*;
@@ -14,8 +15,8 @@ pub struct ArcWater {
 
 pub struct Water {
     tasks: Mutex<VecDeque<Box<FnBox() + Send + 'static>>>,
-    pub condvar: Condvar,
-    pub threads: AtomicUsize,
+    condvar: Condvar,
+    threads: AtomicUsize,
     threads_waited: AtomicUsize,
     min: RwLock<usize>,
     max: RwLock<usize>,
@@ -60,124 +61,65 @@ impl ArcWater {
             }),
         }
     }
-    #[inline]
+
     pub fn daemon(&self, daemon: Option<u64>) {
-        self.set_daemon(daemon);
+        self.water.daemon.rwlock(daemon.map(Duration::from_millis));
     }
-    pub fn set_daemon(&self, daemon: Option<u64>) {
-        let mut rw_daemon = match self.water.daemon.write() {
-            Ok(ok) => ok,
-            Err(e) => e.into_inner(),
-        };
-        *rw_daemon = match daemon {
-            None => None,
-            Some(s) => Some(Duration::from_millis(s)),
-        };
-    }
+
     #[inline]
-    pub fn get_daemon(&self) -> Option<Duration> {
-        let ro_daemon = match self.water.daemon.read() {
-            Ok(ok) => ok,
-            Err(e) => e.into_inner(),
-        };
-        *ro_daemon
+    pub fn get_daemon(self: &Self) -> Option<Duration> {
+        self.water.daemon.rolock()
     }
     pub fn min(&self, min: usize) {
-        let mut rw_min = match self.water.min.write() {
-            Ok(ok) => ok,
-            Err(e) => e.into_inner(),
-        };
-        *rw_min = min;
+        self.water.min.rwlock(min);
     }
     #[inline]
-    pub fn get_min(&self) -> usize {
-        let ro_min = match self.water.min.read() {
-            Ok(ok) => ok,
-            Err(e) => e.into_inner(),
-        };
-        *ro_min
+    pub fn get_min(self: &Self) -> usize {
+        self.water.min.rolock()
     }
     pub fn max(&self, max: usize) {
-        let mut rw_max = match self.water.max.write() {
-            Ok(ok) => ok,
-            Err(e) => e.into_inner(),
-        };
-        *rw_max = max;
+        self.water.max.rwlock(max);
     }
     #[inline]
-    pub fn get_max(&self) -> usize {
-        let ro_max = match self.water.max.read() {
-            Ok(ok) => ok,
-            Err(e) => e.into_inner(),
-        };
-        *ro_max
+    pub fn get_max(self: &Self) -> usize {
+        self.water.max.rolock()
     }
     pub fn time_out(&self, time_out: u64) {
-        let mut rw_time_out = match self.water.time_out.write() {
-            Ok(ok) => ok,
-            Err(e) => e.into_inner(),
-        };
-        *rw_time_out = Duration::from_millis(time_out);
+        self.water.time_out.rwlock(Duration::from_millis(time_out));
     }
     #[inline]
-    pub fn get_time_out(&self) -> Duration {
-        let ro_time_out = match self.water.time_out.read() {
-            Ok(ok) => ok,
-            Err(e) => e.into_inner(),
-        };
-        *ro_time_out
+    pub fn get_time_out(self: &Self) -> Duration {
+        self.water.time_out.rolock()
     }
     pub fn name<T: AsRef<str>>(&self, name: T)
         where T: std::fmt::Debug
     {
-        let mut rw_name = match self.water.name.write() {
-            Ok(ok) => ok,
-            Err(e) => e.into_inner(),
-        };
-        *rw_name = Some(name.as_ref().to_string());
+        self.water.name.rwlock(Some(name.as_ref().to_string()));
     }
     #[inline]
     pub fn get_name(&self) -> Option<String> {
-        let ro_name = match self.water.name.read() {
+        let ro_ = match self.water.name.read() {
             Ok(ok) => ok,
             Err(e) => e.into_inner(),
         };
-        match ro_name.as_ref() {
-            Some(s) => Some(s.to_string()),
-            None => None,
-        }
+        ro_.as_ref().cloned()
     }
     pub fn stack_size(&self, size: usize) {
-        let mut rw_stack_size = match self.water.stack_size.write() {
-            Ok(ok) => ok,
-            Err(e) => e.into_inner(),
-        };
-        *rw_stack_size = Some(size);
+        self.water.stack_size.rwlock(Some(size));
+
     }
     #[inline]
-    pub fn get_stack_size(&self) -> Option<usize> {
-        let ro_stack_size = match self.water.stack_size.read() {
-            Ok(ok) => ok,
-            Err(e) => e.into_inner(),
-        };
-        *ro_stack_size
+    pub fn get_stack_size(self: &Self) -> Option<usize> {
+        self.water.stack_size.rolock()
     }
     pub fn load_limit(&self, load_limit: usize) {
-        let mut rw_load_limit = match self.water.load_limit.write() {
-            Ok(ok) => ok,
-            Err(e) => e.into_inner(),
-        };
-        *rw_load_limit = load_limit;
+        self.water.load_limit.rwlock(load_limit);
     }
     #[inline]
-    pub fn get_load_limit(&self) -> usize {
-        let ro_load_limit = match self.water.load_limit.read() {
-            Ok(ok) => ok,
-            Err(e) => e.into_inner(),
-        };
-        *ro_load_limit
+    pub fn get_load_limit(self: &Self) -> usize {
+        self.water.load_limit.rolock()
     }
-    pub fn run(&self) -> Result<(), std::io::Error> {
+    pub fn run(&self) -> std::io::Result<()> {
         for _ in 0..self.get_min() {
             self.add_thread();
         }
@@ -195,9 +137,9 @@ impl ArcWater {
                                     arc_water.strong_count(),
                                     arc_water.tasks_len(),
                                     arc_water.get_daemon());
-                            //'attempt to subtract with overflow'
                             let min = arc_water.get_min();
                             let strong_count = arc_water.strong_count();
+                            //'attempt to subtract with overflow'
                             let add_num = if min > strong_count {
                                 min - strong_count
                             } else {
@@ -248,14 +190,12 @@ impl ArcWater {
                 Ok(ok) => ok,
                 Err(e) => e.into_inner(),            
             };
-            {
-                dbstln!("Poolite_waits/threads/strong_count-1[2](before_spawn): {}/{}/{} \
-                          ---tasks_queue:  {}",
-                        self.wait_len(),
-                        self.len(),
-                        self.strong_count(),
-                        tasks_queue.len());
-            }
+            dbstln!("Poolite_waits/threads/strong_count-1[2](before_spawn): {}/{}/{} \
+                     ---tasks_queue:  {}",
+                    self.wait_len(),
+                    self.len(),
+                    self.strong_count(),
+                    tasks_queue.len());
             tasks_queue.push_back(task);
             tasks_queue.len()
         };
@@ -315,13 +255,11 @@ impl ArcWater {
                         tasks_queue=new_tasks_queue;
                         // timed_out()为true时(等待超时是收不到通知就知道超时), 且队列空时销毁线程。
                         if waitres.timed_out() && tasks_queue.is_empty() && arc_water.len() >arc_water.get_min() { 
-                            {
-                                dbstln!("Poolite_waits/threads/strong_count-1[2](before_return): {}/{}/{} ---tasks_queue:  {}",
+                            dbstln!("Poolite_waits/threads/strong_count-1[2](before_return): {}/{}/{} ---tasks_queue:  {}",
                                 arc_water.wait_len(),
                                 arc_water.len(),
                                 arc_water.strong_count(),
                                  tasks_queue.len());
-                            }
                             return; 
                             }
                     } // loop 取得任务结束。
@@ -339,15 +277,12 @@ impl ArcWater {
         }
     }
     pub fn drop_pool(&mut self) {
-        {
-            dbstln!("Pool_waits/threads/strong_count-1[2](before_drop): {}/{}/{} \
-                     ---tasks_queue:  {}",
-                    self.wait_len(),
-                    self.len(),
-                    self.strong_count(),
-                    self.tasks_len());
-        }
-        self.set_daemon(None);
+        dbstln!("Pool_waits/threads/strong_count-1[2](before_drop): {}/{}/{} ---tasks_queue:  {}",
+                self.wait_len(),
+                self.len(),
+                self.strong_count(),
+                self.tasks_len());
+        self.daemon(None);
         self.water.threads.store(usize::max_value(), Ordering::Release);
         self.water.condvar.notify_all();
     }
@@ -359,6 +294,7 @@ struct Counter<'a> {
 }
 
 impl<'a> Counter<'a> {
+    #[inline]
     fn add(count: &'a AtomicUsize) -> Counter<'a> {
         count.fetch_add(1, Ordering::Release);
         Counter { count: count }
@@ -366,7 +302,33 @@ impl<'a> Counter<'a> {
 }
 
 impl<'a> Drop for Counter<'a> {
+    #[inline]
     fn drop(&mut self) {
         self.count.fetch_sub(1, Ordering::Release);
+    }
+}
+
+trait RwLockRWlock<T> {
+    fn rolock(self: &Self) -> T where T: Copy;
+    fn rwlock(&self, content: T);
+}
+impl<T> RwLockRWlock<T> for RwLock<T> {
+    #[inline]
+    fn rolock(self: &Self) -> T
+        where T: Copy //deref() lifetime does not enough in super::get*,so do not use &T.
+    {
+        let ro_ = match self.read() {
+            Ok(ok) => ok,
+            Err(e) => e.into_inner(),
+        };
+        *ro_
+    }
+    #[inline]
+    fn rwlock(&self, content: T) {
+        let mut rw_ = match self.write() {
+            Ok(ok) => ok,
+            Err(e) => e.into_inner(),
+        };
+        *rw_ = content;
     }
 }

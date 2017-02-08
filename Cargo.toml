@@ -1,12 +1,12 @@
 [package]
 name = "poolite"
-version = "0.5.1"
-authors = ["biluohc <biluohc@outlook.com>"]
+version = "0.5.2"
+authors = ["biluohc <biluohc@qq.com>"]
 description = "A lite thread pool library."
 repository = "https://github.com/biluohc/poolite"
 documentation = "https://docs.rs/poolite/"
 readme = "readme.md"
-keywords = ["thread","pool","thread_pool","thread-pool"]
+keywords = ["thread","pool","threadpool","thread_pool","thread-pool"]
 license = "MIT"
 
 [dependencies]

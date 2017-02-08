@@ -8,13 +8,13 @@
 //!
 //! ```toml
 //!  [dependencies]
-//!  poolite = "0.5.1"
+//!  poolite = "0.5.2"
 //! ```
 //! or
 //!
 //! ```toml
 //!  [dependencies]
-//!  poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.5.1" }
+//!  poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.5.2" }
 //! ```
 
 //! ## Example
@@ -65,8 +65,6 @@
 //! ```
 
 #![feature(fnbox)]
-#![feature(unboxed_closures)]
-#![feature(type_ascription)]
 
 use std::boxed::FnBox;
 use std::time::Duration;
@@ -93,6 +91,9 @@ pub struct Pool {
     arc_water: ArcWater,
 }
 /// # Creating and Settings
+/// The memory loading depends your task's costing,
+///
+/// `get_min()`(idle time) and `get_max()`(when received large number tasks).
 impl Pool {
     /// Creates and returns a Pool.
     ///
@@ -266,13 +267,12 @@ impl Pool {
     ///
     /// ```Rust
     /// extern crate poolite;
-    /// use poolite::Pool;
-    /// use poolite::{IntoPool, IntoIOResult};
+    /// use poolite::{Pool, IntoPool, IntoIOResult};
     ///
     /// fn fun() -> std::io::Result<()> {
     ///     let pool = Pool::new().run().into_pool();
-    ///     let pool_nodaemon = Pool::new().daemon(None).unwrap();
     ///     let pool_io_rst = Pool::new().run().into_iorst()?;
+    ///     let pool_nodaemon = Pool::new().daemon(None).unwrap();
     ///     Ok(())
     /// }
     ///```
