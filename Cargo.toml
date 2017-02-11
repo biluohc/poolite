@@ -1,6 +1,6 @@
 [package]
 name = "poolite"
-version = "0.5.2"
+version = "0.5.3"
 authors = ["biluohc <biluohc@qq.com>"]
 description = "A lite thread pool library."
 repository = "https://github.com/biluohc/poolite"
@@ -10,8 +10,11 @@ keywords = ["thread","pool","threadpool","thread_pool","thread-pool"]
 license = "MIT"
 
 [dependencies]
-stderr = "0.6.1"
 num_cpus = "1.2.1"
+
+stderr = "0.7.0"
+# stderr = { git = "https://github.com/biluohc/stderr", branch = "master", version = "0.7.0"}
+# stderr= { path = "../stderr" }
 
 [[test]]
 name ="poolite_test_fibs"

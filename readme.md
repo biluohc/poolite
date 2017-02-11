@@ -5,12 +5,12 @@ Cargo.toml
 
 ```toml
     [dependencies]
-    poolite = "0.5.2"
+    poolite = "0.5.3"
 ```
 or
 ```toml
     [dependencies]  
-    poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.5.2" }
+    poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.5.3" }
 ```
 
 ## Documentation  
@@ -19,6 +19,8 @@ or
 * Run `cargo doc --open` after modified the toml file.
 
 ## ChangLog
+* 2017-0211 0.5.3 stderr up to 0.7.0. 
+
 * 2017-0208 0.5.2 use trait to manage `RwLock<T>` in Inner, add a keyword 'threadpool'.
 
 * 2017-0129 0.5.1 add `add_threads()` method,complete `daemon()` method.
