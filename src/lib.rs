@@ -8,61 +8,21 @@
 //!
 //! ```toml
 //!  [dependencies]
-//!  poolite = "0.5.3"
+//!  poolite = "0.5.4"
 //! ```
 //! or
 //!
 //! ```toml
 //!  [dependencies]
-//!  poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.5.3" }
+//!  poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.5.4" }
 //! ```
-
-//! ## Example
 //!
-//! On code:
+//! ## [Examples](https://github.com/biluohc/poolite/blob/master/examples/)
+//! * [without return values](https://github.com/biluohc/poolite/blob/master/examples/without.rs)
+//! 
+//! * [return values by `Arc<Mutex<T>>`](https://github.com/biluohc/poolite/blob/master/examples/arc_mutex.rs)
 //!
-//! ```
-//! extern crate poolite;
-//! use poolite::Pool;
-//!
-//! use std::collections::BTreeMap;
-//! use std::sync::{Arc, Mutex};
-//! use std::time::Duration;
-//! use std::thread;
-//!
-//! fn main() {
-//!     let pool = Pool::new().run().unwrap();
-//!     let map = Arc::new(Mutex::new(BTreeMap::<i32, i32>::new()));
-//!     for i in 0..28 {
-//!         let map = map.clone();
-//!         pool.spawn(Box::new(move || test(i, map)));
-//!     }
-//!     loop {
-//!         thread::sleep(Duration::from_millis(100)); //wait for the pool 100ms.
-//!         if pool.is_empty() {
-//!             break;
-//!         }
-//!     }
-//!     for (k, v) in map.lock().unwrap().iter() {
-//!         println!("key: {}\tvalue: {}", k, v);
-//!     }
-//! }
-//!
-//! fn test(msg: i32, map: Arc<Mutex<BTreeMap<i32, i32>>>) {
-//!     let res = fib(msg);
-//!     {
-//!         let mut maplock = map.lock().unwrap();
-//!         maplock.insert(msg, res);
-//!     }
-//! }
-//!
-//! fn fib(msg: i32) -> i32 {
-//!     match msg {
-//!         0...2 => 1,
-//!         x => fib(x - 1) + fib(x - 2),
-//!     }
-//! }
-//! ```
+//! * [return values by `channel`](https://github.com/biluohc/poolite/blob/master/examples/channel.rs)
 
 #![feature(fnbox)]
 
