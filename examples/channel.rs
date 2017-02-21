@@ -5,7 +5,7 @@ use std::sync::mpsc::{channel, Sender};
 use std::time::Duration;
 use std::thread;
 
-/// cargo run --example channel
+/// `cargo run --example channel`
 fn main() {
     let pool = Pool::new().run().unwrap();
     let (mp, sc) = channel();

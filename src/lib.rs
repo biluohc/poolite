@@ -8,23 +8,25 @@
 //!
 //! ```toml
 //!  [dependencies]
-//!  poolite = "0.5.4"
+//!  poolite = "0.5.5"
 //! ```
 //! or
 //!
 //! ```toml
 //!  [dependencies]
-//!  poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.5.4" }
+//!  poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.5.5" }
 //! ```
 //!
 //! ## [Examples](https://github.com/biluohc/poolite/blob/master/examples/)
 //! * [without return values](https://github.com/biluohc/poolite/blob/master/examples/without.rs)
-//! 
+//!
 //! * [return values by `Arc<Mutex<T>>`](https://github.com/biluohc/poolite/blob/master/examples/arc_mutex.rs)
 //!
 //! * [return values by `channel`](https://github.com/biluohc/poolite/blob/master/examples/channel.rs)
 
 #![feature(fnbox)]
+#![allow(stable_features)]
+//#[stable(feature = "arc_counts", since = "1.15.0")]
 
 use std::boxed::FnBox;
 use std::time::Duration;
@@ -431,16 +433,14 @@ mod tests {
             let map = map.clone();
             pool.spawn(Box::new(move || test(i, map)));
         }
-        loop {
-            thread::sleep(Duration::from_millis(10)); //wait for the pool 100ms.
+
+        while !pool.is_empty() {
+            thread::sleep(Duration::from_millis(10)); //wait for the pool 10ms.
             errln!("len()/strong_count()/min()/max(): {}/{}/{}/{}",
                    pool.len(),
                    pool.strong_count(),
                    pool.get_min(),
                    pool.get_max());
-            if pool.is_empty() {
-                break;
-            }
         }
 
         for (k, v) in map.lock().unwrap().iter() {

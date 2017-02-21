@@ -4,7 +4,7 @@ use poolite::Pool;
 use std::time::Duration;
 use std::thread;
 
-/// cargo run --example without
+/// `cargo run --example without`
 fn main() {
     let pool = Pool::new().run().unwrap();
     for i in 0..38 {

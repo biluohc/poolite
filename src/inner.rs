@@ -125,34 +125,29 @@ impl ArcWater {
         }
         if self.get_daemon().is_some() {
             let arc_water = self.clone();
-            thread::Builder::new().spawn(move || loop {
-                    match arc_water.get_daemon() {
-                        None => break,
-                        Some(s) => {
-                            thread::sleep(s);
-                            dbstln!("Poolite_waits/threads/strong_count-1[2](before_daemon): \
-                                     {}/{}/{} ---tasks_queue: {} /daemon({:?})",
-                                    arc_water.wait_len(),
-                                    arc_water.len(),
-                                    arc_water.strong_count(),
-                                    arc_water.tasks_len(),
-                                    arc_water.get_daemon());
-                            let min = arc_water.get_min();
-                            let strong_count = arc_water.strong_count();
-                            //'attempt to subtract with overflow'
-                            let add_num = if min > strong_count {
-                                min - strong_count
-                            } else {
-                                0
-                            };
-                            for _ in 0..add_num {
-                                arc_water.add_thread();
-                            }
-                            if arc_water.strong_count() == 0 && arc_water.tasks_len() > 0 {
-                                arc_water.add_thread();
-                            }
-                        }
+            thread::Builder::new().spawn(move || while let Some(s) = arc_water.get_daemon() {
+                    thread::sleep(s);
+                    dbstln!("Poolite_waits/threads/strong_count-1[2](before_daemon): {}/{}/{} \
+                             ---tasks_queue: {} /daemon({:?})",
+                            arc_water.wait_len(),
+                            arc_water.len(),
+                            arc_water.strong_count(),
+                            arc_water.tasks_len(),
+                            arc_water.get_daemon());
+                    let min = arc_water.get_min();
+                    let strong_count = arc_water.strong_count();
+                    //'attempt to subtract with overflow'
+                    let add_num = if min > strong_count {
+                        min - strong_count
+                    } else {
+                        0
                     };
+                    for _ in 0..add_num {
+                        arc_water.add_thread();
+                    }
+                    if arc_water.strong_count() == 0 && arc_water.tasks_len() > 0 {
+                        arc_water.add_thread();
+                    }
                 })?;
         }
         Ok(())

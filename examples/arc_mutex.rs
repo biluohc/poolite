@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::thread;
 
-/// cargo run --example arc_mutex
+/// `cargo run --example arc_mutex`
 fn main() {
     let pool = Pool::new().run().unwrap();
     let map = Arc::new(Mutex::new(BTreeMap::<i32, i32>::new()));

@@ -36,10 +36,7 @@ fn fibm() {
     let map = Arc::new(Mutex::new(BTreeMap::<i32, i32>::new()));
 
     let mut count = 0;
-    loop {
-        if count == 100 {
-            break;
-        }
+    while count != 100 {
         for i in 0..36 {
             let map = map.clone();
             pool.spawn(Box::new(move || test(i, map)));
@@ -63,10 +60,7 @@ fn fibm() {
            pool.len(),
            pool.strong_count());
     count = 0;
-    loop {
-        if count == 100 {
-            break;
-        }
+    while count != 100 {
         for i in 0..32 {
             let map = map.clone();
             pool.spawn(Box::new(move || test(i, map)));

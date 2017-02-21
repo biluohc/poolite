@@ -5,12 +5,12 @@ Cargo.toml
 
 ```toml
     [dependencies]
-    poolite = "0.5.4"
+    poolite = "0.5.5"
 ```
 or
 ```toml
     [dependencies]  
-    poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.5.4" }
+    poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.5.5" }
 ```
 
 ## Documentation  
@@ -19,6 +19,8 @@ or
 * Run `cargo doc --open` after modified the toml file.
 
 ## ChangLog
+* 2017-0221 0.5.5 add a stable feature(`#[stable(feature = "arc_counts", since = "1.15.0")]`),to avoid old Nightly build fails.
+
 * 2017-0221 0.5.4 rewrite examples. 
 
 * 2017-0211 0.5.3 stderr up to 0.7.0. 
