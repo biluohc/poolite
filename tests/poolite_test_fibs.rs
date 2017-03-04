@@ -21,8 +21,6 @@ fn main() {
     }
     let ed = SystemTime::now();
     errln!("{:?}\n", (ed.duration_since(st).unwrap()));
-    // errln!("wait mem decrease sleep 12000ms");
-    // thread::sleep(Duration::from_millis(12000));
 }
 fn fibm() {
     let pool = Pool::new()
@@ -39,11 +37,11 @@ fn fibm() {
     while count != 100 {
         for i in 0..36 {
             let map = map.clone();
-            pool.spawn(Box::new(move || test(i, map)));
+            pool.push(move || test(i, map));
         }
         count += 1;
     }
-    errln!("is_empty(): {}\ttasks_len(): {}",
+    errln!("\nis_empty(): {}\ttasks_len(): {}",
            pool.is_empty(),
            pool.tasks_len());
     errln!("wait_len()/len()/strong_count()-1[2]: {}/{}/{}\n",
@@ -63,7 +61,7 @@ fn fibm() {
     while count != 100 {
         for i in 0..32 {
             let map = map.clone();
-            pool.spawn(Box::new(move || test(i, map)));
+            pool.push(move || test(i, map));
         }
         thread::sleep(Duration::from_millis(100));
         count += 1;
@@ -77,10 +75,6 @@ fn fibm() {
            pool.wait_len(),
            pool.len(),
            pool.strong_count());
-    // errln!("wait mem decrease for pool sleep 12000ms");
-    // thread::sleep(Duration::from_millis(12000));
-    // pool.spawn(Box::new(move || panic!("spawn a panic!()")));
-    // thread::sleep(Duration::from_millis(100));
 
     for (k, v) in map.lock().unwrap().iter() {
         println!("key: {}\tvalue: {}", k, v);
@@ -95,10 +89,8 @@ fn fibm() {
            pool.strong_count());
     fn test(msg: i32, map: Arc<Mutex<BTreeMap<i32, i32>>>) {
         let res = fib(msg);
-        {
-            let mut maplock = map.lock().unwrap();
-            maplock.insert(msg, res);
-        }
+        let mut maplock = map.lock().unwrap();
+        maplock.insert(msg, res);
     }
     fn fib(msg: i32) -> i32 {
         match msg {
@@ -107,3 +99,57 @@ fn fibm() {
         }
     }
 }
+
+#[allow(deprecated)]
+#[test]
+fn old_and_new() {
+    use poolite::Pool;
+    use poolite::Task;
+
+    let mut msg = "call FnMut() spawn".to_owned();
+    println!("Pool::num_cpus(): {}", Pool::num_cpus());
+
+    let pool = Pool::new().run().unwrap();
+    pool.spawn(Box::new(fnn_old)); //old: spawn(Fn)
+    pool.spawn(Box::new(move || fnm(&mut msg))); //old: spawn(FnMut)
+    let msg = "call FnOnce() spwan".to_owned();
+    pool.spawn(Box::new(|| fno(msg))); //old: spawn(FnOnce)
+
+    let mut msg = "call FnMut() push".to_owned();
+    pool.push(fnn); //push(Fn())
+    pool.push(move || fnm(&mut msg)); //push(FnMut())
+    let msg = "call FnOnce() push".to_owned();
+    pool.push(|| fno(msg)); //push(FnOnce())
+    pool.push(Task::new(Box::new(fnn_task))); // push(Task)
+    pool.join();
+}
+
+fn fnn() {
+    println!("call Fn() push");
+}
+
+fn fnn_task() {
+    println!("call Fn() push Task");
+}
+
+fn fnn_old() {
+    println!("call Fn() spawn");
+}
+
+fn fnm(msg: &mut String) {
+    println!("{}", msg);
+    *msg = "call FnMut() return".to_owned()
+}
+
+fn fno(msg: String) {
+    println!("{}", msg);
+}
+
+// #[allow(deprecated)]
+// #[test]
+// fn push_2_panic() {
+//     let pool = Pool::new().run().unwrap();
+//     pool.push(move || panic!("push a panic!()"));
+//     pool.spawn(Box::new(||panic!("spawn a panic!()" )));
+//     pool.join();
+// }

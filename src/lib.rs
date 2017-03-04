@@ -1,5 +1,5 @@
 //! # [poolite](https://github.com/biluohc/poolite)
-//!  A lite thread pool library written for Rust.
+//!  A lite threadpool library written for Rust.
 //!
 
 //! ## Usage
@@ -8,13 +8,13 @@
 //!
 //! ```toml
 //!  [dependencies]
-//!  poolite = "0.5.5"
+//!  poolite = "0.6.0"
 //! ```
 //! or
 //!
 //! ```toml
 //!  [dependencies]
-//!  poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.5.5" }
+//!  poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.6.0" }
 //! ```
 //!
 //! ## [Examples](https://github.com/biluohc/poolite/blob/master/examples/)
@@ -24,29 +24,25 @@
 //!
 //! * [return values by `channel`](https://github.com/biluohc/poolite/blob/master/examples/channel.rs)
 
-#![feature(fnbox)]
 #![allow(stable_features)]
+#![feature(fnbox,arc_counts)]
 //#[stable(feature = "arc_counts", since = "1.15.0")]
 
-use std::boxed::FnBox;
+use std::fmt::{self, Debug, Display};
 use std::time::Duration;
+use std::error::Error;
+use std::boxed::FnBox;
+use std::thread;
 
 #[macro_use]
 extern crate stderr;
 use stderr::Loger;
 extern crate num_cpus;
 
-// 默认线程销毁超时时间 ms 。
-// 默认开启 deamon 。
-// 默认初始化线程数由num_cpus决定。
-/// Defaults thread's idle time(ms).
-const TIME_OUT_MS: u64 = 5_000;
-/// Defaults open daemon.
-// const DAEMON: Option<Duration> = Some(Duration::from_millis(TIME_OUT_MS));
-static mut NUM_CPUS: usize = 1;
-
 mod inner;
-use inner::ArcWater;
+#[allow(unused_imports)] //TIME_OUT_MS
+use inner::{ArcWater, TIME_OUT_MS};
+pub use inner::{Task, IntoTask};
 
 /// The Pool struct.
 pub struct Pool {
@@ -70,10 +66,6 @@ impl Pool {
     /// You can use it on `min()` ,`max()` or `load_limit()`.
     ///
     /// Maybe you also need `std::usize::MIN` or `std::usize::MAX`.
-    ///
-    /// **Warning**: It  be initialized by use `new()` the first time on the current process,
-    ///
-    /// Don't use it before `new()`(Otherwise it will return 1).
     ///
     #[inline]
     pub fn num_cpus() -> usize {
@@ -144,8 +136,8 @@ impl Pool {
     /// Sets thread's name where them in the Pool,default is None(`'<unnamed>'`).
     ///
     #[inline]
-    pub fn name<T: AsRef<str>>(self, name: T) -> Self
-        where T: std::fmt::Debug
+    pub fn name<T: Into<String>>(self, name: T) -> Self
+        where T: Debug
     {
         self.arc_water.name(name);
         self
@@ -246,23 +238,25 @@ impl Pool {
         Ok(self)
     }
 
-    /// Adds a task to the Pool,
+    /// Appends a task to the Pool,
     ///
+    /// it receives `Fn() + Send + 'static，FnMut() + Send + 'static` and
+    ///
+    ///  `FnOnce() + Send + 'static>`.
+    #[inline]
+    pub fn push<Task: IntoTask>(&self, task: Task) {
+        self.arc_water.spawn(task.into_task());
+    }
     /// it receives `Box<Fn() + Send + 'static>，Box<FnMut() + Send + 'static>` and
     ///
     ///  `Box<FnOnce() + Send + 'static>(Box<FnBox() + Send + 'static>)`.
     ///
     #[inline]
+    #[deprecated(since = "0.6.0",note = "You should use `push` instead")]
     pub fn spawn(&self, task: Box<FnBox() + Send + 'static>) {
-        self.arc_water.spawn(task);
+        self.arc_water.spawn(Task::new(task));
     }
-    // #[inline]
-    // pub fn add_task(&self, task: &(FnOnce() + Send + 'static)) {
-    //     let task: Box<FnBox() + Send + 'static> = Box::new(*task);
-    //     self.arc_water.spawn(task);
-    // }
-    ///
-    /// Manually add threads(Do not need to use it generally).
+    ///Manually add threads(Do not need to use it generally).
     #[inline]
     pub fn add_threads(&self, num: usize) {
         for _ in 0..num {
@@ -280,9 +274,33 @@ impl Pool {
         self.arc_water.is_empty()
     }
 
+    ///Use it to wait for the Pool,you can also group `is_empty()` by yourself.
+    ///
+    ///```fuckrs
+    ///pub fn join(&self) {
+    ///         self.join_ms(10); //wait for the pool 10ms
+    ///    }
+    ///```
+    #[inline]
+    pub fn join(&self) {
+        self.join_ms(10);
+    }
+    ///```fuckrs
+    ///pub fn join_ms(&self, time: u64) {
+    ///       while !self.is_empty() {
+    ///           thread::sleep(Duration::from_millis(time)); //wait for the pool time(ms).
+    ///       }
+    ///    }
+    ///```
+    #[inline]
+    pub fn join_ms(&self, time: u64) {
+        while !self.is_empty() {
+            thread::sleep(Duration::from_millis(time)); //wait for the pool time(ms).
+        }
+    }
     /// Returns the length of the tasks_queue.
     ///
-    /// **Warning**: `is_empty()` and `tasks_len()` will all get the lock, please do not abuse them(Affecting performance).
+    /// **Warning**: `tasks_len()` will get the lock, please do not abuse it(Affecting performance).
     ///
     #[inline]
     pub fn tasks_len(&self) -> usize {
@@ -318,8 +336,11 @@ impl Drop for Pool {
     }
 }
 
-use std::fmt::{self, Debug, Display};
-use std::error::Error;
+impl Default for Pool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 /// The error type for the pool's `run()` if the pool spawning the daemon thread fails.
 pub struct PoolError {
@@ -407,7 +428,9 @@ mod tests {
     use std::thread;
     #[test]
     fn main() {
-        assert!(Pool::num_cpus() == 1);
+        assert!(Pool::num_cpus() > 0);
+        errln!("Pool::num_cpus(): {}", Pool::num_cpus());
+
         let pool = Pool::new();
 
         assert!(Pool::num_cpus() >= 1);
@@ -431,7 +454,7 @@ mod tests {
         let map = Arc::new(Mutex::new(BTreeMap::<i32, i32>::new()));
         for i in 0..33 {
             let map = map.clone();
-            pool.spawn(Box::new(move || test(i, map)));
+            pool.push(move || test(i, map));
         }
 
         while !pool.is_empty() {
@@ -471,10 +494,8 @@ mod tests {
 
     fn test(msg: i32, map: Arc<Mutex<BTreeMap<i32, i32>>>) {
         let res = fib(msg);
-        {
-            let mut maplock = map.lock().unwrap();
-            maplock.insert(msg, res);
-        }
+        let mut maplock = map.lock().unwrap();
+        maplock.insert(msg, res);
     }
 
     fn fib(msg: i32) -> i32 {

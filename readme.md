@@ -1,16 +1,16 @@
-# A lite thread pool library written for Rust. 
+# A lite threadpool library written for Rust. 
 
 ## Usage
 Cargo.toml
 
 ```toml
     [dependencies]
-    poolite = "0.5.5"
+    poolite = "0.6.0"
 ```
 or
 ```toml
     [dependencies]  
-    poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.5.5" }
+    poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.6.0" }
 ```
 
 ## Documentation  
@@ -19,6 +19,8 @@ or
 * Run `cargo doc --open` after modified the toml file.
 
 ## ChangLog
+* 2017-0304 0.6.0 add `join()` methods ,use `ONCE_INIT` to call `num_cpus::get()` and add `push()` method to avoid user call `Box::new()` manually.
+
 * 2017-0221 0.5.5 add a stable feature(`#[stable(feature = "arc_counts", since = "1.15.0")]`),to avoid old Nightly build fails.
 
 * 2017-0221 0.5.4 rewrite examples. 

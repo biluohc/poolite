@@ -1,20 +1,61 @@
-use std::sync::{Arc, Mutex, RwLock, Condvar};
+use std::sync::{Arc, Mutex, RwLock, Condvar, Once, ONCE_INIT};
 use std::sync::atomic::{Ordering, AtomicUsize};
 use std::collections::VecDeque;
 use std::time::Duration;
 use std::error::Error;
+use std::fmt::Debug;
 use std::thread;
+use std::io;
+use std;
 
-// use std::panic;
+use super::{FnBox, num_cpus, Loger};
 
-use super::*;
+/// Defaults thread's idle time(ms).
+pub const TIME_OUT_MS: u64 = 5_000;
+/// Defaults open daemon.
+// const DAEMON: Option<Duration> = Some(Duration::from_millis(TIME_OUT_MS));
+static mut NUM_CPUS: usize = 0;
+static INIT: Once = ONCE_INIT;
+
+/// The Task struct
+pub struct Task {
+    inner: Box<FnBox() + Send + 'static>,
+}
+impl Task {
+    #[inline]
+    pub fn new(task: Box<FnBox() + Send + 'static>) -> Self {
+        Task { inner: task }
+    }
+    #[inline]
+    fn run(self) {
+        (self.inner)()
+    }
+}
+
+///To avoid call `Box::new()` manually by user
+pub trait IntoTask {
+    #[inline]
+    fn into_task(self) -> Task;
+}
+impl IntoTask for Task {
+    #[inline]
+    fn into_task(self) -> Task {
+        self
+    }
+}
+impl<F: FnBox() + Send + 'static> IntoTask for F {
+    #[inline]
+    fn into_task(self) -> Task {
+        Task::new(Box::from(self))
+    }
+}
 
 pub struct ArcWater {
     water: Arc<Water>,
 }
 
 pub struct Water {
-    tasks: Mutex<VecDeque<Box<FnBox() + Send + 'static>>>,
+    tasks: Mutex<VecDeque<Task>>,
     condvar: Condvar,
     threads: AtomicUsize,
     threads_waited: AtomicUsize,
@@ -35,15 +76,12 @@ impl Clone for ArcWater {
 impl ArcWater {
     #[inline]
     pub fn num_cpus() -> usize {
-        unsafe { NUM_CPUS }
+        unsafe {
+            INIT.call_once(|| { NUM_CPUS = num_cpus::get(); });
+            NUM_CPUS
+        }
     }
     pub fn new() -> Self {
-        let num_cpus = num_cpus::get();
-        if Self::num_cpus() != num_cpus {
-            unsafe {
-                NUM_CPUS = num_cpus;
-            }
-        }
         ArcWater {
             water: Arc::new(Water {
                 tasks: Mutex::new(VecDeque::new()),
@@ -91,10 +129,10 @@ impl ArcWater {
     pub fn get_time_out(self: &Self) -> Duration {
         self.water.time_out.rolock()
     }
-    pub fn name<T: AsRef<str>>(&self, name: T)
-        where T: std::fmt::Debug
+    pub fn name<T: Into<String>>(&self, name: T)
+        where T: Debug
     {
-        self.water.name.rwlock(Some(name.as_ref().to_string()));
+        self.water.name.rwlock(Some(name.into()));
     }
     #[inline]
     pub fn get_name(&self) -> Option<String> {
@@ -119,7 +157,7 @@ impl ArcWater {
     pub fn get_load_limit(self: &Self) -> usize {
         self.water.load_limit.rolock()
     }
-    pub fn run(&self) -> std::io::Result<()> {
+    pub fn run(&self) -> io::Result<()> {
         for _ in 0..self.get_min() {
             self.add_thread();
         }
@@ -178,12 +216,12 @@ impl ArcWater {
     pub fn wait_len(&self) -> usize {
         (&self.water.threads_waited).load(Ordering::Acquire)
     }
-    pub fn spawn(&self, task: Box<FnBox() + Send + 'static>) {
+    pub fn spawn(&self, task: Task) {
         let tasks_queue_len = {
             // 减小锁的作用域。
             let mut tasks_queue = match self.water.tasks.lock() {
                 Ok(ok) => ok,
-                Err(e) => e.into_inner(),            
+                Err(e) => e.into_inner(),
             };
             dbstln!("Poolite_waits/threads/strong_count-1[2](before_spawn): {}/{}/{} \
                      ---tasks_queue:  {}",
@@ -194,13 +232,12 @@ impl ArcWater {
             tasks_queue.push_back(task);
             tasks_queue.len()
         };
-        // 因为创建的线程有延迟，所有用 strong_count()-1[2] (ArcWater本身和daemon各持有一个引用)更合适，否则会创建一堆线程(白白浪费内存，性能还差！)。
+        // 因为创建的线程有延迟，所以用 strong_count()-1[2] (ArcWater本身和daemon各持有一个引用)更合适，
+        // 否则会创建一堆线程(白白浪费内存，性能还差！)。
         // (&self.water.threads_waited).load(Ordering::Acquire) 在前性能好一些。
         // 注意min==0 且 load_limit>0 时,线程池里无线程则前 load_limit 个请求会一直阻塞。
         let count = self.strong_count();
-        if count == 0 ||
-           count <= self.get_max() && self.wait_len() == 0 &&
-           tasks_queue_len / count > self.get_load_limit() {
+        if count == 0 || count <= self.get_max() && self.wait_len() == 0 && tasks_queue_len / count > self.get_load_limit() {
             self.add_thread();
         } else {
             self.water.condvar.notify_one();
@@ -220,51 +257,51 @@ impl ArcWater {
             None => thread,
         };
         // spawn 有延迟,必须等父线程阻塞才运行.
-        let spawn_res = thread
-            .spawn(move || {
-                let arc_water= arc_water;
-                // 对线程计数.
-                let _threads_counter = Counter::add(&arc_water.water.threads);
+        let spawn_res = thread.spawn(move || {
+            let arc_water = arc_water;
+            // 对线程计数.
+            let _threads_counter = Counter::add(&arc_water.water.threads);
 
-                loop {
-                    let task; //声明任务。
-                    {
+            loop {
+                let task; //声明任务。
+                {
                     let mut tasks_queue = match arc_water.water.tasks.lock() {
                         Ok(ok) => ok,
-                        Err(e) => e.into_inner(),            
+                        Err(e) => e.into_inner(),
                     };
-                        // 移入内层loop=>解决全局锁问题；移出内层loop到单独的{}=>解决重复look()问题。
-                    loop { 
+                    // 移入内层loop=>解决全局锁问题；移出内层loop到单独的{}=>解决重复look()问题。
+                    loop {
                         if let Some(poped_task) = tasks_queue.pop_front() {
-                            task = poped_task;// pop成功就break ,执行pop出的任务.
+                            task = poped_task; // pop成功就break ,执行pop出的任务.
                             break;
                         }
                         // 对在等候的线程计数.
                         let _threads_waited_counter = Counter::add(&arc_water.water.threads_waited);
 
-                        let (new_tasks_queue, waitres) =match arc_water.water.condvar
-                                    .wait_timeout(tasks_queue, arc_water.get_time_out()) {
-                                        Ok(ok)=>ok,
-                                        Err(e)=>e.into_inner(),
-                                    };
-                        tasks_queue=new_tasks_queue;
+                        let (new_tasks_queue, waitres) = match arc_water.water
+                            .condvar
+                            .wait_timeout(tasks_queue, arc_water.get_time_out()) {
+                            Ok(ok) => ok,
+                            Err(e) => e.into_inner(),
+                        };
+                        tasks_queue = new_tasks_queue;
                         // timed_out()为true时(等待超时是收不到通知就知道超时), 且队列空时销毁线程。
-                        if waitres.timed_out() && tasks_queue.is_empty() && arc_water.len() >arc_water.get_min() { 
+                        if waitres.timed_out() && tasks_queue.is_empty() && arc_water.len() > arc_water.get_min() {
                             dbstln!("Poolite_waits/threads/strong_count-1[2](before_return): {}/{}/{} ---tasks_queue:  {}",
-                                arc_water.wait_len(),
-                                arc_water.len(),
-                                arc_water.strong_count(),
-                                 tasks_queue.len());
-                            return; 
-                            }
+                                    arc_water.wait_len(),
+                                    arc_water.len(),
+                                    arc_water.strong_count(),
+                                    tasks_queue.len());
+                            return;
+                        }
                     } // loop 取得任务结束。
-                    }
-                    // the trait `std::panic::UnwindSafe` is not implemented for `std::boxed::FnBox<(), Output=()> + std::marker::Send
-                    // let run_res = panic::catch_unwind(|| {
-                            task();/*执行任务。*/
-                    // });
-                } // loop 结束。
-            }); //spawn 线程结束。
+                }
+                // the trait `std::panic::UnwindSafe` is not implemented for `std::boxed::FnBox<(), Output=()> + std::marker::Send
+                // let run_res = panic::catch_unwind(|| {
+                task.run(); /*执行任务。*/
+                // });
+            } // loop 结束。
+        }); //spawn 线程结束。
 
         if let Err(e) = spawn_res {
             errstln!("Poolite_Warnig: add thread failed because of '{}' !",
