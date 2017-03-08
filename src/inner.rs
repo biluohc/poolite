@@ -59,12 +59,12 @@ pub struct Water {
     condvar: Condvar,
     threads: AtomicUsize,
     threads_waited: AtomicUsize,
-    min: RwLock<usize>,
-    max: RwLock<usize>,
+    min: AtomicUsize,
+    max: AtomicUsize,
     time_out: RwLock<Duration>,
     name: RwLock<Option<String>>,
     stack_size: RwLock<Option<usize>>,
-    load_limit: RwLock<usize>,
+    load_limit: AtomicUsize,
     daemon: RwLock<Option<Duration>>,
 }
 
@@ -89,12 +89,12 @@ impl ArcWater {
                 threads: AtomicUsize::new(0),
                 threads_waited: AtomicUsize::new(0),
 
-                min: RwLock::new(Self::num_cpus() + 1),
-                max: RwLock::new(std::usize::MAX),
+                min: AtomicUsize::new(Self::num_cpus() + 1),
+                max: AtomicUsize::new(std::usize::MAX),
                 time_out: RwLock::new(Duration::from_millis(TIME_OUT_MS)),
                 name: RwLock::new(None),
                 stack_size: RwLock::new(None),
-                load_limit: RwLock::new(Self::num_cpus() * Self::num_cpus()),
+                load_limit: AtomicUsize::new(Self::num_cpus() * Self::num_cpus()),
                 daemon: RwLock::new(Some(Duration::from_millis(TIME_OUT_MS))),
             }),
         }
@@ -109,18 +109,18 @@ impl ArcWater {
         self.water.daemon.rolock()
     }
     pub fn min(&self, min: usize) {
-        self.water.min.rwlock(min);
+        self.water.min.store(min, Ordering::SeqCst);
     }
     #[inline]
     pub fn get_min(self: &Self) -> usize {
-        self.water.min.rolock()
+        self.water.min.load(Ordering::Relaxed)
     }
     pub fn max(&self, max: usize) {
-        self.water.max.rwlock(max);
+        self.water.max.store(max, Ordering::SeqCst);
     }
     #[inline]
     pub fn get_max(self: &Self) -> usize {
-        self.water.max.rolock()
+        self.water.max.load(Ordering::Relaxed)
     }
     pub fn time_out(&self, time_out: u64) {
         self.water.time_out.rwlock(Duration::from_millis(time_out));
@@ -136,11 +136,7 @@ impl ArcWater {
     }
     #[inline]
     pub fn get_name(&self) -> Option<String> {
-        let ro_ = match self.water.name.read() {
-            Ok(ok) => ok,
-            Err(e) => e.into_inner(),
-        };
-        ro_.as_ref().cloned()
+        self.water.name.rolock()
     }
     pub fn stack_size(&self, size: usize) {
         self.water.stack_size.rwlock(Some(size));
@@ -151,11 +147,11 @@ impl ArcWater {
         self.water.stack_size.rolock()
     }
     pub fn load_limit(&self, load_limit: usize) {
-        self.water.load_limit.rwlock(load_limit);
+        self.water.load_limit.store(load_limit, Ordering::SeqCst);
     }
     #[inline]
     pub fn get_load_limit(self: &Self) -> usize {
-        self.water.load_limit.rolock()
+        self.water.load_limit.load(Ordering::Relaxed)
     }
     pub fn run(&self) -> io::Result<()> {
         for _ in 0..self.get_min() {
@@ -341,19 +337,19 @@ impl<'a> Drop for Counter<'a> {
 }
 
 trait RwLockRWlock<T> {
-    fn rolock(self: &Self) -> T where T: Copy;
+    fn rolock(self: &Self) -> T where T: Clone;
     fn rwlock(&self, content: T);
 }
 impl<T> RwLockRWlock<T> for RwLock<T> {
     #[inline]
     fn rolock(self: &Self) -> T
-        where T: Copy //deref() lifetime does not enough in super::get*,so do not use &T.
+        where T: Clone //deref() lifetime does not enough in super::get*,so do not use &T.
     {
         let ro_ = match self.read() {
             Ok(ok) => ok,
             Err(e) => e.into_inner(),
         };
-        *ro_
+        (*ro_).clone()
     }
     #[inline]
     fn rwlock(&self, content: T) {
