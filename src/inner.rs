@@ -1,5 +1,5 @@
 use std::sync::{Arc, Mutex, RwLock, Condvar, Once, ONCE_INIT};
-use std::sync::atomic::{Ordering, AtomicUsize};
+use std::sync::atomic::{Ordering, AtomicUsize, AtomicU64};
 use std::collections::VecDeque;
 use std::time::Duration;
 use std::error::Error;
@@ -61,7 +61,7 @@ pub struct Water {
     threads_waited: AtomicUsize,
     min: AtomicUsize,
     max: AtomicUsize,
-    time_out: RwLock<Duration>,
+    time_out: AtomicU64,
     name: RwLock<Option<String>>,
     stack_size: RwLock<Option<usize>>,
     load_limit: AtomicUsize,
@@ -84,19 +84,19 @@ impl ArcWater {
     pub fn new() -> Self {
         ArcWater {
             water: Arc::new(Water {
-                tasks: Mutex::new(VecDeque::new()),
-                condvar: Condvar::new(),
-                threads: AtomicUsize::new(0),
-                threads_waited: AtomicUsize::new(0),
+                                tasks: Mutex::new(VecDeque::new()),
+                                condvar: Condvar::new(),
+                                threads: AtomicUsize::new(0),
+                                threads_waited: AtomicUsize::new(0),
 
-                min: AtomicUsize::new(Self::num_cpus() + 1),
-                max: AtomicUsize::new(std::usize::MAX),
-                time_out: RwLock::new(Duration::from_millis(TIME_OUT_MS)),
-                name: RwLock::new(None),
-                stack_size: RwLock::new(None),
-                load_limit: AtomicUsize::new(Self::num_cpus() * Self::num_cpus()),
-                daemon: RwLock::new(Some(Duration::from_millis(TIME_OUT_MS))),
-            }),
+                                min: AtomicUsize::new(Self::num_cpus() + 1),
+                                max: AtomicUsize::new(std::usize::MAX),
+                                time_out: AtomicU64::new(TIME_OUT_MS),
+                                name: RwLock::new(None),
+                                stack_size: RwLock::new(None),
+                                load_limit: AtomicUsize::new(Self::num_cpus() * Self::num_cpus()),
+                                daemon: RwLock::new(Some(Duration::from_millis(TIME_OUT_MS))),
+                            }),
         }
     }
 
@@ -123,11 +123,11 @@ impl ArcWater {
         self.water.max.load(Ordering::Relaxed)
     }
     pub fn time_out(&self, time_out: u64) {
-        self.water.time_out.rwlock(Duration::from_millis(time_out));
+        self.water.time_out.store(time_out, Ordering::SeqCst);
     }
     #[inline]
     pub fn get_time_out(self: &Self) -> Duration {
-        self.water.time_out.rolock()
+        Duration::from_millis(self.water.time_out.load(Ordering::Relaxed))
     }
     pub fn name<T: Into<String>>(&self, name: T)
         where T: Debug
@@ -140,7 +140,6 @@ impl ArcWater {
     }
     pub fn stack_size(&self, size: usize) {
         self.water.stack_size.rwlock(Some(size));
-
     }
     #[inline]
     pub fn get_stack_size(self: &Self) -> Option<usize> {
@@ -160,29 +159,25 @@ impl ArcWater {
         if self.get_daemon().is_some() {
             let arc_water = self.clone();
             thread::Builder::new().spawn(move || while let Some(s) = arc_water.get_daemon() {
-                    thread::sleep(s);
-                    dbstln!("Poolite_waits/threads/strong_count-1[2](before_daemon): {}/{}/{} \
+                           thread::sleep(s);
+                           dbstln!("Poolite_waits/threads/strong_count-1[2](before_daemon): {}/{}/{} \
                              ---tasks_queue: {} /daemon({:?})",
-                            arc_water.wait_len(),
-                            arc_water.len(),
-                            arc_water.strong_count(),
-                            arc_water.tasks_len(),
-                            arc_water.get_daemon());
-                    let min = arc_water.get_min();
-                    let strong_count = arc_water.strong_count();
-                    //'attempt to subtract with overflow'
-                    let add_num = if min > strong_count {
-                        min - strong_count
-                    } else {
-                        0
-                    };
-                    for _ in 0..add_num {
-                        arc_water.add_thread();
-                    }
-                    if arc_water.strong_count() == 0 && arc_water.tasks_len() > 0 {
-                        arc_water.add_thread();
-                    }
-                })?;
+                                   arc_water.wait_len(),
+                                   arc_water.len(),
+                                   arc_water.strong_count(),
+                                   arc_water.tasks_len(),
+                                   arc_water.get_daemon());
+                           let min = arc_water.get_min();
+                           let strong_count = arc_water.strong_count();
+                           //'attempt to subtract with overflow'
+                           let add_num = if min > strong_count {min - strong_count} else { 0 };
+                           for _ in 0..add_num {
+                               arc_water.add_thread();
+                           }
+                           if arc_water.strong_count() == 0 && arc_water.tasks_len() > 0 {
+                               arc_water.add_thread();
+                           }
+                       })?;
         }
         Ok(())
     }
@@ -274,9 +269,7 @@ impl ArcWater {
                         // 对在等候的线程计数.
                         let _threads_waited_counter = Counter::add(&arc_water.water.threads_waited);
 
-                        let (new_tasks_queue, waitres) = match arc_water.water
-                            .condvar
-                            .wait_timeout(tasks_queue, arc_water.get_time_out()) {
+                        let (new_tasks_queue, waitres) = match arc_water.water.condvar.wait_timeout(tasks_queue, arc_water.get_time_out()) {
                             Ok(ok) => ok,
                             Err(e) => e.into_inner(),
                         };

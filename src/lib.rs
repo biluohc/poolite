@@ -8,13 +8,13 @@
 //!
 //! ```toml
 //!  [dependencies]
-//!  poolite = "0.6.0"
+//!  poolite = "0.6.1"
 //! ```
 //! or
 //!
 //! ```toml
 //!  [dependencies]
-//!  poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.6.0" }
+//!  poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.6.1" }
 //! ```
 //!
 //! ## [Examples](https://github.com/biluohc/poolite/blob/master/examples/)
@@ -25,7 +25,7 @@
 //! * [return values by `channel`](https://github.com/biluohc/poolite/blob/master/examples/channel.rs)
 
 #![allow(stable_features)]
-#![feature(fnbox,arc_counts)]
+#![feature(fnbox,integer_atomics,arc_counts)]
 //#[stable(feature = "arc_counts", since = "1.15.0")]
 
 use std::fmt::{self, Debug, Display};
