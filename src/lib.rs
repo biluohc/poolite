@@ -8,13 +8,7 @@
 //!
 //! ```toml
 //!  [dependencies]
-//!  poolite = "0.6.1"
-//! ```
-//! or
-//!
-//! ```toml
-//!  [dependencies]
-//!  poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.6.1" }
+//!  poolite = "0.6.2"
 //! ```
 //!
 //! ## [Examples](https://github.com/biluohc/poolite/blob/master/examples/)

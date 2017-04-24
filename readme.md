@@ -5,12 +5,12 @@ Cargo.toml
 
 ```toml
     [dependencies]
-    poolite = "0.6.1"
+    poolite = "0.6.2"
 ```
 or
 ```toml
     [dependencies]  
-    poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.6.1" }
+    poolite = { git = "https://github.com/biluohc/poolite",branch = "master", version = "0.6.2" }
 ```
 
 ## Documentation  
@@ -19,6 +19,8 @@ or
 * Run `cargo doc --open` after modified the toml file.
 
 ## ChangLog
+* 2017-0424 0.6.2 stderr up to 0.7.1.
+
 * 2017-0310 0.6.1 `RwLock<usize>`->`AtomicUsize` and `RwLock<Duration>`->`AtomicU64` in inner.
 
 * 2017-0304 0.6.0 add `join()` methods ,use `ONCE_INIT` to call `num_cpus::get()` and add `push()` method to avoid user call `Box::new()` manually.

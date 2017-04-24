@@ -1,6 +1,6 @@
 [package]
 name = "poolite"
-version = "0.6.1"
+version = "0.6.2"
 authors = ["biluohc <biluohc@qq.com>"]
 description = "A lite threadpool library."
 repository = "https://github.com/biluohc/poolite"
@@ -12,8 +12,8 @@ license = "MIT"
 [dependencies]
 num_cpus = "^1.2.1"
 
-stderr = "0.7.0"
-# stderr = { git = "https://github.com/biluohc/stderr", branch = "master", version = "0.7.0"}
+stderr = "0.7.1"
+# stderr = { git = "https://github.com/biluohc/stderr", branch = "master", version = "0.7.1"}
 # stderr= { path = "../stderr" }
 
 [[test]]
