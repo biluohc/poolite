@@ -9,6 +9,9 @@ readme = "readme.md"
 keywords = ["thread","pool","threadpool","thread_pool","thread-pool"]
 license = "MIT"
 
+[badges]
+travis-ci = { repository = "biluohc/poolite" }
+
 [dependencies]
 num_cpus = "^1.2.1"
 
