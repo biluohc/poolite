@@ -8,7 +8,7 @@ use std::thread;
 use std::io;
 use std;
 
-use super::{FnBox, num_cpus, Loger};
+use super::{FnBox, num_cpus};
 
 /// Defaults thread's idle time(ms).
 pub const TIME_OUT_MS: u64 = 5_000;

@@ -8,7 +8,7 @@
 //!
 //! ```toml
 //!  [dependencies]
-//!  poolite = "0.6.2"
+//!  poolite = "0.6.3"
 //! ```
 //!
 //! ## [Examples](https://github.com/biluohc/poolite/blob/master/examples/)
@@ -30,7 +30,6 @@ use std::thread;
 
 #[macro_use]
 extern crate stderr;
-use stderr::Loger;
 extern crate num_cpus;
 
 mod inner;
@@ -51,7 +50,7 @@ impl Pool {
     ///
     #[inline]
     pub fn new() -> Self {
-        init!();
+        logger_init!();
         Pool { arc_water: ArcWater::new() }
     }
 
