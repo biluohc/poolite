@@ -10,7 +10,7 @@ fn main() {
     // You also can use RwLock instead of Mutex if you read more than write.
     let map = Arc::new(Mutex::new(BTreeMap::<i32, i32>::new()));
     for i in 0..38 {
-        let map = Arc::clone(&map);
+        let map = map.clone();
         pool.push(move || test(i, map));
     }
 

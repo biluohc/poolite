@@ -1,5 +1,7 @@
 /*!
-# [A lite threadpool library written for Rust.](https://github.com/biluohc/poolite)
+# [poolite](https://github.com/biluohc/poolite)
+
+A lite threadpool library written for Rust.
 
 ## Usage
 
@@ -24,7 +26,7 @@ or
 
 * [return values by `channel`](https://github.com/biluohc/poolite/blob/master/examples/channel.rs)
 
-* [about IntoIOResult and IntoPool](https://github.com/biluohc/poolite/blob/master/examples/into.rs)
+* [about `IntoIOResult` and `IntoPool`](https://github.com/biluohc/poolite/blob/master/examples/into.rs)
 */
 use std::fmt::{self, Debug, Display};
 use std::time::Duration;
