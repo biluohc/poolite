@@ -9,7 +9,9 @@ rust:
 #   allow_failures:
     - rust: nightly
 script: |
-  cargo build && cargo test
+  cargo build &&
+  cargo test  tests::main &&
+  cargo test  old_and_new
   # cargo doc
 
 notifications:
