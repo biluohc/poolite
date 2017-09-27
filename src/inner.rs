@@ -1,5 +1,5 @@
 use std::sync::{Arc, Mutex, RwLock, Condvar, Once, ONCE_INIT};
-use std::sync::atomic::{Ordering, AtomicUsize, AtomicU64};
+use std::sync::atomic::{Ordering, AtomicUsize};
 use std::collections::VecDeque;
 use std::time::Duration;
 use std::error::Error;
@@ -8,7 +8,7 @@ use std::thread;
 use std::io;
 use std;
 
-use super::{FnBox, num_cpus};
+use super::num_cpus;
 
 /// Defaults thread's idle time(ms).
 pub const TIME_OUT_MS: u64 = 5_000;
@@ -17,36 +17,17 @@ pub const TIME_OUT_MS: u64 = 5_000;
 static mut NUM_CPUS: usize = 0;
 static INIT: Once = ONCE_INIT;
 
-/// The Task struct
-pub struct Task {
-    inner: Box<FnBox() + Send + 'static>,
-}
-impl Task {
-    #[inline]
-    pub fn new(task: Box<FnBox() + Send + 'static>) -> Self {
-        Task { inner: task }
-    }
-    #[inline]
-    fn run(self) {
-        (self.inner)()
-    }
-}
+/// The Task Box
+pub type Task = Box<Runable + Send + 'static>;
 
-///To avoid call `Box::new()` manually by user
-pub trait IntoTask {
-    #[inline]
-    fn into_task(self) -> Task;
+/// The `Runable` trait for `FnOnce()`
+pub trait Runable {
+    fn run(self: Box<Self>);
 }
-impl IntoTask for Task {
+impl<F: FnOnce()> Runable for F {
     #[inline]
-    fn into_task(self) -> Task {
-        self
-    }
-}
-impl<F: FnBox() + Send + 'static> IntoTask for F {
-    #[inline]
-    fn into_task(self) -> Task {
-        Task::new(Box::from(self))
+    fn run(self: Box<Self>) {
+        (*self)()
     }
 }
 
@@ -61,7 +42,7 @@ pub struct Water {
     threads_waited: AtomicUsize,
     min: AtomicUsize,
     max: AtomicUsize,
-    time_out: AtomicU64,
+    time_out: AtomicUsize,
     name: RwLock<Option<String>>,
     stack_size: RwLock<Option<usize>>,
     load_limit: AtomicUsize,
@@ -84,19 +65,19 @@ impl ArcWater {
     pub fn new() -> Self {
         ArcWater {
             water: Arc::new(Water {
-                                tasks: Mutex::new(VecDeque::new()),
-                                condvar: Condvar::new(),
-                                threads: AtomicUsize::new(0),
-                                threads_waited: AtomicUsize::new(0),
+                tasks: Mutex::new(VecDeque::new()),
+                condvar: Condvar::new(),
+                threads: AtomicUsize::new(0),
+                threads_waited: AtomicUsize::new(0),
 
-                                min: AtomicUsize::new(Self::num_cpus() + 1),
-                                max: AtomicUsize::new(std::usize::MAX),
-                                time_out: AtomicU64::new(TIME_OUT_MS),
-                                name: RwLock::new(None),
-                                stack_size: RwLock::new(None),
-                                load_limit: AtomicUsize::new(Self::num_cpus() * Self::num_cpus()),
-                                daemon: RwLock::new(Some(Duration::from_millis(TIME_OUT_MS))),
-                            }),
+                min: AtomicUsize::new(Self::num_cpus() + 1),
+                max: AtomicUsize::new(std::usize::MAX),
+                time_out: AtomicUsize::new(TIME_OUT_MS as usize),
+                name: RwLock::new(None),
+                stack_size: RwLock::new(None),
+                load_limit: AtomicUsize::new(Self::num_cpus() * Self::num_cpus()),
+                daemon: RwLock::new(Some(Duration::from_millis(TIME_OUT_MS as u64))),
+            }),
         }
     }
 
@@ -123,14 +104,18 @@ impl ArcWater {
         self.water.max.load(Ordering::Relaxed)
     }
     pub fn time_out(&self, time_out: u64) {
-        self.water.time_out.store(time_out, Ordering::SeqCst);
+        self.water.time_out.store(
+            time_out as usize,
+            Ordering::SeqCst,
+        );
     }
     #[inline]
     pub fn get_time_out(self: &Self) -> Duration {
-        Duration::from_millis(self.water.time_out.load(Ordering::Relaxed))
+        Duration::from_millis(self.water.time_out.load(Ordering::Relaxed) as u64)
     }
     pub fn name<T: Into<String>>(&self, name: T)
-        where T: Debug
+    where
+        T: Debug,
     {
         self.water.name.rwlock(Some(name.into()));
     }
@@ -158,26 +143,34 @@ impl ArcWater {
         }
         if self.get_daemon().is_some() {
             let arc_water = self.clone();
-            thread::Builder::new().spawn(move || while let Some(s) = arc_water.get_daemon() {
-                           thread::sleep(s);
-                           dbstln!("Poolite_waits/threads/strong_count-1[2](before_daemon): {}/{}/{} \
+            thread::Builder::new().spawn(move || while let Some(s) =
+                arc_water.get_daemon()
+            {
+                thread::sleep(s);
+                dbstln!(
+                    "Poolite_waits/threads/strong_count-1[2](before_daemon): {}/{}/{} \
                              ---tasks_queue: {} /daemon({:?})",
-                                   arc_water.wait_len(),
-                                   arc_water.len(),
-                                   arc_water.strong_count(),
-                                   arc_water.tasks_len(),
-                                   arc_water.get_daemon());
-                           let min = arc_water.get_min();
-                           let strong_count = arc_water.strong_count();
-                           //'attempt to subtract with overflow'
-                           let add_num = if min > strong_count {min - strong_count} else { 0 };
-                           for _ in 0..add_num {
-                               arc_water.add_thread();
-                           }
-                           if arc_water.strong_count() == 0 && arc_water.tasks_len() > 0 {
-                               arc_water.add_thread();
-                           }
-                       })?;
+                    arc_water.wait_len(),
+                    arc_water.len(),
+                    arc_water.strong_count(),
+                    arc_water.tasks_len(),
+                    arc_water.get_daemon()
+                );
+                let min = arc_water.get_min();
+                let strong_count = arc_water.strong_count();
+                //'attempt to subtract with overflow'
+                let add_num = if min > strong_count {
+                    min - strong_count
+                } else {
+                    0
+                };
+                for _ in 0..add_num {
+                    arc_water.add_thread();
+                }
+                if arc_water.strong_count() == 0 && arc_water.tasks_len() > 0 {
+                    arc_water.add_thread();
+                }
+            })?;
         }
         Ok(())
     }
@@ -214,12 +207,14 @@ impl ArcWater {
                 Ok(ok) => ok,
                 Err(e) => e.into_inner(),
             };
-            dbstln!("Poolite_waits/threads/strong_count-1[2](before_spawn): {}/{}/{} \
+            dbstln!(
+                "Poolite_waits/threads/strong_count-1[2](before_spawn): {}/{}/{} \
                      ---tasks_queue:  {}",
-                    self.wait_len(),
-                    self.len(),
-                    self.strong_count(),
-                    tasks_queue.len());
+                self.wait_len(),
+                self.len(),
+                self.strong_count(),
+                tasks_queue.len()
+            );
             tasks_queue.push_back(task);
             tasks_queue.len()
         };
@@ -269,18 +264,23 @@ impl ArcWater {
                         // 对在等候的线程计数.
                         let _threads_waited_counter = Counter::add(&arc_water.water.threads_waited);
 
-                        let (new_tasks_queue, waitres) = match arc_water.water.condvar.wait_timeout(tasks_queue, arc_water.get_time_out()) {
+                        let (new_tasks_queue, waitres) = match arc_water.water.condvar.wait_timeout(
+                            tasks_queue,
+                            arc_water.get_time_out(),
+                        ) {
                             Ok(ok) => ok,
                             Err(e) => e.into_inner(),
                         };
                         tasks_queue = new_tasks_queue;
                         // timed_out()为true时(等待超时是收不到通知就知道超时), 且队列空时销毁线程。
                         if waitres.timed_out() && tasks_queue.is_empty() && arc_water.len() > arc_water.get_min() {
-                            dbstln!("Poolite_waits/threads/strong_count-1[2](before_return): {}/{}/{} ---tasks_queue:  {}",
-                                    arc_water.wait_len(),
-                                    arc_water.len(),
-                                    arc_water.strong_count(),
-                                    tasks_queue.len());
+                            dbstln!(
+                                "Poolite_waits/threads/strong_count-1[2](before_return): {}/{}/{} ---tasks_queue:  {}",
+                                arc_water.wait_len(),
+                                arc_water.len(),
+                                arc_water.strong_count(),
+                                tasks_queue.len()
+                            );
                             return;
                         }
                     } // loop 取得任务结束。
@@ -293,18 +293,25 @@ impl ArcWater {
         }); //spawn 线程结束。
 
         if let Err(e) = spawn_res {
-            errstln!("Poolite_Warnig: add thread failed because of '{}' !",
-                     e.description());
+            errstln!(
+                "Poolite_Warnig: add thread failed because of '{}' !",
+                e.description()
+            );
         }
     }
     pub fn drop_pool(&mut self) {
-        dbstln!("Pool_waits/threads/strong_count-1[2](before_drop): {}/{}/{} ---tasks_queue:  {}",
-                self.wait_len(),
-                self.len(),
-                self.strong_count(),
-                self.tasks_len());
+        dbstln!(
+            "Pool_waits/threads/strong_count-1[2](before_drop): {}/{}/{} ---tasks_queue:  {}",
+            self.wait_len(),
+            self.len(),
+            self.strong_count(),
+            self.tasks_len()
+        );
         self.daemon(None);
-        self.water.threads.store(usize::max_value(), Ordering::Release);
+        self.water.threads.store(
+            usize::max_value(),
+            Ordering::Release,
+        );
         self.water.condvar.notify_all();
     }
 }
@@ -330,13 +337,16 @@ impl<'a> Drop for Counter<'a> {
 }
 
 trait RwLockRWlock<T> {
-    fn rolock(self: &Self) -> T where T: Clone;
+    fn rolock(self: &Self) -> T
+    where
+        T: Clone;
     fn rwlock(&self, content: T);
 }
 impl<T> RwLockRWlock<T> for RwLock<T> {
     #[inline]
     fn rolock(self: &Self) -> T
-        where T: Clone //deref() lifetime does not enough in super::get*,so do not use &T.
+    where
+        T: Clone, //deref() lifetime does not enough in super::get*,so do not use &T.
     {
         let ro_ = match self.read() {
             Ok(ok) => ok,

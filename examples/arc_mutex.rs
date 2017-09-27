@@ -7,9 +7,10 @@ use std::sync::{Arc, Mutex};
 /// `cargo run --example arc_mutex`
 fn main() {
     let pool = Pool::new().run().unwrap();
+    // You also can use RwLock instead of Mutex if you read more than write.
     let map = Arc::new(Mutex::new(BTreeMap::<i32, i32>::new()));
     for i in 0..38 {
-        let map = map.clone();
+        let map = Arc::clone(&map);
         pool.push(move || test(i, map));
     }
 

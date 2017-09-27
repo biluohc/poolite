@@ -1,31 +1,34 @@
-//! # [poolite](https://github.com/biluohc/poolite)
-//!  A lite threadpool library written for Rust.
-//!
+/*!
+# [A lite threadpool library written for Rust.](https://github.com/biluohc/poolite)
 
-//! ## Usage
-//!
-//! On Cargo.toml:
-//!
-//! ```toml
-//!  [dependencies]
-//!  poolite = "0.6.3"
-//! ```
-//!
-//! ## [Examples](https://github.com/biluohc/poolite/blob/master/examples/)
-//! * [without return values](https://github.com/biluohc/poolite/blob/master/examples/without.rs)
-//!
-//! * [return values by `Arc<Mutex<T>>`](https://github.com/biluohc/poolite/blob/master/examples/arc_mutex.rs)
-//!
-//! * [return values by `channel`](https://github.com/biluohc/poolite/blob/master/examples/channel.rs)
+## Usage
 
-#![allow(stable_features)]
-#![feature(fnbox,integer_atomics,arc_counts)]
-//#[stable(feature = "arc_counts", since = "1.15.0")]
+On Cargo.toml:
 
+```toml
+ [dependencies]
+ poolite = "0.6.4"
+```
+
+## Documentation  
+* Visit [Docs.rs](https://docs.rs/poolite/)  
+
+or 
+
+* Run `cargo doc --open` after modified the toml file.
+
+## [Examples](https://github.com/biluohc/poolite/blob/master/examples/)
+* [without return values](https://github.com/biluohc/poolite/blob/master/examples/without.rs)
+
+* [return values by `Arc<Mutex<T>>`](https://github.com/biluohc/poolite/blob/master/examples/arc_mutex.rs)
+
+* [return values by `channel`](https://github.com/biluohc/poolite/blob/master/examples/channel.rs)
+
+* [about IntoIOResult and IntoPool](https://github.com/biluohc/poolite/blob/master/examples/into.rs)
+*/
 use std::fmt::{self, Debug, Display};
 use std::time::Duration;
 use std::error::Error;
-use std::boxed::FnBox;
 use std::thread;
 
 #[macro_use]
@@ -35,7 +38,7 @@ extern crate num_cpus;
 mod inner;
 #[allow(unused_imports)] //TIME_OUT_MS
 use inner::{ArcWater, TIME_OUT_MS};
-pub use inner::{Task, IntoTask};
+pub use inner::{Task, Runable};
 
 /// The Pool struct.
 pub struct Pool {
@@ -130,7 +133,8 @@ impl Pool {
     ///
     #[inline]
     pub fn name<T: Into<String>>(self, name: T) -> Self
-        where T: Debug
+    where
+        T: Debug,
     {
         self.arc_water.name(name);
         self
@@ -233,21 +237,20 @@ impl Pool {
 
     /// Appends a task to the Pool,
     ///
-    /// it receives `Fn() + Send + 'static，FnMut() + Send + 'static` and
-    ///
-    ///  `FnOnce() + Send + 'static>`.
+    /// it receives `Fn() + Send + 'static，FnMut() + Send + 'static` and `FnOnce() + Send + 'static>`.
     #[inline]
-    pub fn push<Task: IntoTask>(&self, task: Task) {
-        self.arc_water.spawn(task.into_task());
+    pub fn push<T>(&self, task: T)
+    where
+        T: Runable + Send + 'static,
+    {
+        self.arc_water.spawn(Box::new(task) as
+            Box<Runable + Send + 'static>);
     }
-    /// it receives `Box<Fn() + Send + 'static>，Box<FnMut() + Send + 'static>` and
-    ///
-    ///  `Box<FnOnce() + Send + 'static>(Box<FnBox() + Send + 'static>)`.
-    ///
+    /// it receives `Box<Fn() + Send + 'static>，Box<FnMut() + Send + 'static>` and `Box<FnOnce() + Send + 'static>`.
     #[inline]
-    #[deprecated(since = "0.6.0",note = "You should use `push` instead")]
-    pub fn spawn(&self, task: Box<FnBox() + Send + 'static>) {
-        self.arc_water.spawn(Task::new(task));
+    #[deprecated(since = "0.6.0", note = "You should use `push` instead")]
+    pub fn spawn<Task: Runable + Send + 'static>(&self, task: Box<Task>) {
+        self.arc_water.spawn(task);
     }
     ///Manually add threads(Do not need to use it generally).
     #[inline]
@@ -369,17 +372,21 @@ impl Error for PoolError {
 impl Debug for PoolError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use std::error::Error;
-        write!(f,
-               "PoolError {{ pool : Pool, err : {:?} }}",
-               self.error.description())
+        write!(
+            f,
+            "PoolError {{ pool : Pool, err : {:?} }}",
+            self.error.description()
+        )
     }
 }
 impl Display for PoolError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use std::error::Error;
-        write!(f,
-               "PoolError {{ pool : Pool, err : {} }}",
-               self.error.description())
+        write!(
+            f,
+            "PoolError {{ pool : Pool, err : {} }}",
+            self.error.description()
+        )
     }
 }
 
@@ -452,11 +459,13 @@ mod tests {
 
         while !pool.is_empty() {
             thread::sleep(Duration::from_millis(10)); //wait for the pool 10ms.
-            errln!("len()/strong_count()/min()/max(): {}/{}/{}/{}",
-                   pool.len(),
-                   pool.strong_count(),
-                   pool.get_min(),
-                   pool.get_max());
+            errln!(
+                "len()/strong_count()/min()/max(): {}/{}/{}/{}",
+                pool.len(),
+                pool.strong_count(),
+                pool.get_min(),
+                pool.get_max()
+            );
         }
 
         for (k, v) in map.lock().unwrap().iter() {
@@ -478,11 +487,13 @@ mod tests {
         println!("time_out: {:?}", pool.get_time_out());
         let pool = Pool::new().max(0).run().unwrap();
         thread::sleep(Duration::from_millis(100)); //wait for the pool 100ms.
-        errln!("len()/strong_count()/min()/max(0): {}/{}/{}/{}",
-               pool.len(),
-               pool.strong_count(),
-               pool.get_min(),
-               pool.get_max());
+        errln!(
+            "len()/strong_count()/min()/max(0): {}/{}/{}/{}",
+            pool.len(),
+            pool.strong_count(),
+            pool.get_min(),
+            pool.get_max()
+        );
     }
 
     fn test(msg: i32, map: Arc<Mutex<BTreeMap<i32, i32>>>) {

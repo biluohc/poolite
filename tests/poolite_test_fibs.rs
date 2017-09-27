@@ -41,22 +41,30 @@ fn fibm() {
         }
         count += 1;
     }
-    errln!("\nis_empty(): {}\ttasks_len(): {}",
-           pool.is_empty(),
-           pool.tasks_len());
-    errln!("wait_len()/len()/strong_count()-1[2]: {}/{}/{}\n",
-           pool.wait_len(),
-           pool.len(),
-           pool.strong_count());
+    errln!(
+        "\nis_empty(): {}\ttasks_len(): {}",
+        pool.is_empty(),
+        pool.tasks_len()
+    );
+    errln!(
+        "wait_len()/len()/strong_count()-1[2]: {}/{}/{}\n",
+        pool.wait_len(),
+        pool.len(),
+        pool.strong_count()
+    );
     thread::sleep(Duration::from_millis(5000));
     errln!("loop0 finished ! main slept 5000 ms ! ");
-    errln!("is_empty(): {}\ttasks_len(): {}",
-           pool.is_empty(),
-           pool.tasks_len());
-    errln!("wait_len()/len()/strong_count()-1[2]: {}/{}/{}\n",
-           pool.wait_len(),
-           pool.len(),
-           pool.strong_count());
+    errln!(
+        "is_empty(): {}\ttasks_len(): {}",
+        pool.is_empty(),
+        pool.tasks_len()
+    );
+    errln!(
+        "wait_len()/len()/strong_count()-1[2]: {}/{}/{}\n",
+        pool.wait_len(),
+        pool.len(),
+        pool.strong_count()
+    );
     count = 0;
     while count != 100 {
         for i in 0..32 {
@@ -68,25 +76,33 @@ fn fibm() {
     }
     thread::sleep(Duration::from_millis(6000));
     errln!("loop1 finished ! main slept 6000 ms ! ");
-    errln!("is_empty(): {}\ttasks_len(): {}",
-           pool.is_empty(),
-           pool.tasks_len());
-    errln!("wait_len()/len()/strong_count()-1[2]: {}/{}/{}\n",
-           pool.wait_len(),
-           pool.len(),
-           pool.strong_count());
+    errln!(
+        "is_empty(): {}\ttasks_len(): {}",
+        pool.is_empty(),
+        pool.tasks_len()
+    );
+    errln!(
+        "wait_len()/len()/strong_count()-1[2]: {}/{}/{}\n",
+        pool.wait_len(),
+        pool.len(),
+        pool.strong_count()
+    );
 
     for (k, v) in map.lock().unwrap().iter() {
         println!("key: {}\tvalue: {}", k, v);
     }
-    errln!("is_empty(): {}\ttasks_len(): {}",
-           pool.is_empty(),
-           pool.tasks_len());
+    errln!(
+        "is_empty(): {}\ttasks_len(): {}",
+        pool.is_empty(),
+        pool.tasks_len()
+    );
 
-    errln!("wait_len()/len()/strong_count()-1[2]: {}/{}/{}\n",
-           pool.wait_len(),
-           pool.len(),
-           pool.strong_count());
+    errln!(
+        "wait_len()/len()/strong_count()-1[2]: {}/{}/{}\n",
+        pool.wait_len(),
+        pool.len(),
+        pool.strong_count()
+    );
     fn test(msg: i32, map: Arc<Mutex<BTreeMap<i32, i32>>>) {
         let res = fib(msg);
         let mut maplock = map.lock().unwrap();
@@ -104,7 +120,6 @@ fn fibm() {
 #[test]
 fn old_and_new() {
     use poolite::Pool;
-    use poolite::Task;
 
     let mut msg = "call FnMut() spawn".to_owned();
     println!("Pool::num_cpus(): {}", Pool::num_cpus());
@@ -120,16 +135,11 @@ fn old_and_new() {
     pool.push(move || fnm(&mut msg)); //push(FnMut())
     let msg = "call FnOnce() push".to_owned();
     pool.push(|| fno(msg)); //push(FnOnce())
-    pool.push(Task::new(Box::new(fnn_task))); // push(Task)
     pool.join();
 }
 
 fn fnn() {
     println!("call Fn() push");
-}
-
-fn fnn_task() {
-    println!("call Fn() push Task");
 }
 
 fn fnn_old() {
