@@ -5,9 +5,11 @@ rust:
   - nightly
   - beta
   - stable
-# matrix:
-#   allow_failures:
+matrix:
+  allow_failures:
     - rust: nightly
+#     - rust: stable
+#     - rust: beta
 script: |
   cargo build &&
   cargo test  tests::main &&
