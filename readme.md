@@ -14,7 +14,7 @@ On Cargo.toml:
 
 ```toml
  [dependencies]
- poolite = "0.6.4"
+ poolite = "0.7.0"
 ```
 
 ### Documentation
@@ -31,4 +31,6 @@ or
 
 * [return values by `channel`](https://github.com/biluohc/poolite/blob/master/examples/channel.rs)
 
-* [about `IntoIOResult` and `IntoPool`](https://github.com/biluohc/poolite/blob/master/examples/into.rs)
+* [about `PoolError`](https://github.com/biluohc/poolite/blob/master/examples/into.rs)
+
+* [about `Builder`](https://github.com/biluohc/poolite/blob/master/examples/builder.rs)

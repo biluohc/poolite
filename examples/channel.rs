@@ -13,6 +13,7 @@ fn main() {
     }
 
     pool.join(); // wait for the pool
+    println!("{:?}", pool);
 
     while let Ok((k, v)) = sc.try_recv() {
         println!("key: {}\tvalue: {}", k, v);

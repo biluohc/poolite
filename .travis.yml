@@ -12,9 +12,9 @@ matrix:
 #     - rust: beta
 script: |
   cargo build &&
-  cargo test  tests::main &&
-  cargo test  old_and_new
-  # cargo doc
+  cargo test test &&
+  cargo test --release test &&
+  cargo doc
 
 notifications:
   email:

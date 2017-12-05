@@ -1,15 +1,18 @@
 extern crate poolite;
-use poolite::{Pool,IntoPool, IntoIOResult};
+use poolite::Pool;
 use std::io;
 
 /// `cargo run --example into`
 fn main() {
-    pool();
+    into_inner();
     println!(); // newline
-    println!("{:?}", io());
+    println!("{:?}", into_error());
 }
-fn pool() {
-    let pool = Pool::new().run().into_pool();
+fn into_inner() {
+    let pool = match Pool::new().run() {
+        Ok(p) => p,
+        Err(e) => e.into_inner(),
+    };
     for i in 0..38 {
         pool.push(move || test(i));
     }
@@ -17,14 +20,14 @@ fn pool() {
     pool.join(); //wait for the pool
 }
 
-fn io()->io::Result<()> {
-    let pool = Pool::new().run().into_iorst()?;
+fn into_error() -> io::Result<()> {
+    let pool = Pool::new().run().map_err(|e| e.into_error())?;
     for i in 0..38 {
         pool.push(move || test(i));
     }
 
     pool.join(); //wait for the pool
-    
+
     Ok(())
 }
 
@@ -38,4 +41,3 @@ fn fib(msg: i32) -> i32 {
         x => fib(x - 1) + fib(x - 2),
     }
 }
-

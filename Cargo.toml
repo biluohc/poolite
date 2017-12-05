@@ -1,6 +1,6 @@
 [package]
 name = "poolite"
-version = "0.6.4"
+version = "0.7.0"
 authors = ["biluohc <biluohc@qq.com>"]
 description = "A lite threadpool library."
 repository = "https://github.com/biluohc/poolite"
@@ -13,11 +13,10 @@ license = "MIT"
 travis-ci = { repository = "biluohc/poolite" }
 
 [dependencies]
+crossbeam-channel = "^0.1.1"
+mxo_env_logger = "^0.1"
 num_cpus = "^1.2.1"
-
-stderr = "0.8.0"
-# stderr = { git = "https://github.com/biluohc/stderr", branch = "master", version = "0.7.1"}
-# stderr= { path = "../stderr" }
+log = "^0.3.8"
 
 [[test]]
 name ="poolite_test_fibs"
