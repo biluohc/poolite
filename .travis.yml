@@ -13,8 +13,9 @@ matrix:
 script: |
   cargo build &&
   cargo test test &&
-  cargo test --release test &&
-  cargo doc
+  cargo test src/lib.rs &&
+  cargo test src/inner.rs
+  
 
 notifications:
   email:

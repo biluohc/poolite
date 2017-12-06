@@ -6,7 +6,7 @@ description = "A lite threadpool library."
 repository = "https://github.com/biluohc/poolite"
 documentation = "https://docs.rs/poolite/"
 readme = "readme.md"
-keywords = ["thread","pool","threadpool","thread_pool","thread-pool"]
+keywords = ["thread","thread-pool","threadpool","scoped"]
 license = "MIT"
 
 [badges]

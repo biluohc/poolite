@@ -24,13 +24,49 @@ or
 
 * Run `cargo doc --open` after modified the toml file.
 
-### [Examples](https://github.com/biluohc/poolite/blob/master/examples/)
-* [without return values](https://github.com/biluohc/poolite/blob/master/examples/without.rs)
+### Base usage
+```rust
+extern crate poolite;
+use poolite::Pool;
 
-* [return values by `Arc<Mutex<T>>`](https://github.com/biluohc/poolite/blob/master/examples/arc_mutex.rs)
+fn main() {
+    let pool = Pool::new().run().unwrap();
+    for i in 0..38 {
+        pool.push(move || test(i));
+    }
 
-* [return values by `channel`](https://github.com/biluohc/poolite/blob/master/examples/channel.rs)
+    pool.join(); //wait for the pool
+}
 
-* [about `PoolError`](https://github.com/biluohc/poolite/blob/master/examples/into.rs)
+fn test(msg: i32) {
+    println!("key: {}\tvalue: {}", msg, fib(msg));
+}
 
-* [about `Builder`](https://github.com/biluohc/poolite/blob/master/examples/builder.rs)
+fn fib(msg: i32) -> i32 {
+    match msg {
+        0...2 => 1,
+        x => fib(x - 1) + fib(x - 2),
+    }
+}
+```
+
+### `Scoped` task
+```rust
+extern crate poolite;
+use poolite::Pool;
+
+fn main() {
+    let pool = Pool::new().run().unwrap();
+    let mut array = (0..100usize).into_iter().map(|i| (i, 0)).collect::<Vec<_>>();
+
+    // scoped method will waiting scoped's task running finish.
+    pool.scoped(|scope| for i in array.iter_mut() {
+        // have to move
+        scope.push(move|| i.1 = i.0*i.0);
+    });
+
+    for (i, j) in array {
+        println!("key: {}\tvalue: {}", i, j);
+    }
+}
+```
