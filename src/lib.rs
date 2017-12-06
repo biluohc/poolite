@@ -65,6 +65,8 @@ fn main() {
     }
 }
 ```
+
+## [More Examples](https://github.com/biluohc/poolite/blob/master/examples/)
 */
 #[macro_use]
 extern crate log;
