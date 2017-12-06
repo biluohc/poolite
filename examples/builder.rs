@@ -10,7 +10,7 @@ fn main() {
     .timeout(None) //Close
     .name("Worker")
     .stack_size(1024*1024*2) //2Mib
-    .run()
+    .build()
     .unwrap();
 
     for i in 0..38 {

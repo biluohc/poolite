@@ -9,7 +9,7 @@ fn main() {
     println!("{:?}", into_error());
 }
 fn into_inner() {
-    let pool = match Pool::new().run() {
+    let pool = match Pool::new() {
         Ok(p) => p,
         Err(e) => e.into_inner(),
     };
@@ -21,7 +21,7 @@ fn into_inner() {
 }
 
 fn into_error() -> io::Result<()> {
-    let pool = Pool::new().run().map_err(|e| e.into_error())?;
+    let pool = Pool::new().map_err(|e| e.into_error())?;
     for i in 0..38 {
         pool.push(move || test(i));
     }

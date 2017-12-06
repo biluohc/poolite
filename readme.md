@@ -14,7 +14,7 @@ On Cargo.toml:
 
 ```toml
  [dependencies]
- poolite = "0.7.0"
+ poolite = "0.7.1"
 ```
 
 ### Documentation
@@ -30,7 +30,7 @@ extern crate poolite;
 use poolite::Pool;
 
 fn main() {
-    let pool = Pool::new().run().unwrap();
+    let pool = Pool::new().unwrap();
     for i in 0..38 {
         pool.push(move || test(i));
     }
@@ -50,13 +50,13 @@ fn fib(msg: i32) -> i32 {
 }
 ```
 
-### `Scoped` task
+### `Scoped` `Task`
 ```rust
 extern crate poolite;
 use poolite::Pool;
 
 fn main() {
-    let pool = Pool::new().run().unwrap();
+    let pool = Pool::new().unwrap();
     let mut array = (0..100usize).into_iter().map(|i| (i, 0)).collect::<Vec<_>>();
 
     // scoped method will waiting scoped's task running finish.
@@ -71,4 +71,4 @@ fn main() {
 }
 ```
 
-### [More Examples](https://github.com/biluohc/poolite/blob/master/examples/)
+### [More Examples..](https://github.com/biluohc/poolite/blob/master/examples/)

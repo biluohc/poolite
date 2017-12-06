@@ -9,7 +9,7 @@ On Cargo.toml:
 
 ```toml
  [dependencies]
- poolite = "0.7.0"
+ poolite = "0.7.1"
 ```
 
 ## Documentation  
@@ -25,7 +25,7 @@ extern crate poolite;
 use poolite::Pool;
 
 fn main() {
-    let pool = Pool::new().run().unwrap();
+    let pool = Pool::new().unwrap();
     for i in 0..38 {
         pool.push(move || test(i));
     }
@@ -45,13 +45,13 @@ fn fib(msg: i32) -> i32 {
 }
 ```
 
-## `Scoped` task
+## `Scoped` `Task`
 ```
 extern crate poolite;
 use poolite::Pool;
 
 fn main() {
-    let pool = Pool::new().run().unwrap();
+    let pool = Pool::new().unwrap();
     let mut array = (0..100usize).into_iter().map(|i| (i, 0)).collect::<Vec<_>>();
 
     // scoped method will waiting scoped's task running finish.
@@ -66,7 +66,7 @@ fn main() {
 }
 ```
 
-## [More Examples](https://github.com/biluohc/poolite/blob/master/examples/)
+## [More Examples..](https://github.com/biluohc/poolite/blob/master/examples/)
 */
 #[macro_use]
 extern crate log;
@@ -96,25 +96,24 @@ pub struct Pool {
 }
 
 impl Pool {
-    pub fn new() -> Self {
-        Self::with_builder(Builder::default())
+    pub fn new() -> Result<Self, PoolError> {
+       Self::with_builder(Builder::default())
     }
-    pub fn with_builder(b: Builder) -> Self {
+    pub fn with_builder(b: Builder) -> Result<Self, PoolError> {
         assert!(b.max >= b.min, "min > max");
         assert!(b.max != 0, "max == 0");
+        let _ = init();        
 
-        Self { inner: Inner::with_builder(b) }
+        let mut new =  Pool { inner: Inner::with_builder(b) };
+
+        match (&mut new).inner.run() {
+            Ok(_) => Ok(new),
+            Err(e) => Err(PoolError::new(new, e)),
+        }
     }
     /// Get `Pool`'s settings
     pub fn as_builder(&self) -> &Builder {
         self.inner.as_builder()
-    }
-    pub fn run(mut self) -> Result<Self, PoolError> {
-        let _ = init();
-        match (&mut self).inner.run() {
-            Ok(_) => Ok(self),
-            Err(e) => Err(PoolError::new(self, e)),
-        }
     }
     /// All threads are waiting and tasks_queue'length is 0.
     pub fn is_empty(&self) -> bool {
@@ -169,12 +168,6 @@ impl Pool {
         while !self.is_empty() {
             thread::sleep(Duration::from_millis(ms)); //wait for the pool time(ms).
         }
-    }
-}
-
-impl Default for Pool {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -245,16 +238,16 @@ mod tests {
     #[should_panic]
     #[test]
     fn min_bq_max() {
-        let _pool = Builder::new().min(100).max(99).run();
+        let _pool = Builder::new().min(100).max(99).build();
     }
     #[should_panic]
     #[test]
     fn max_zero() {
-        let _pool = Builder::new().max(0).run();
+        let _pool = Builder::new().max(0).build();
     }
     #[test]
     fn min_eq_max() {
-        let _pool = Builder::new().min(100).max(100).run();
+        let _pool = Builder::new().min(100).max(100).build();
     }
     #[test]
     fn min_max() {
@@ -291,7 +284,7 @@ mod tests {
         let str1 = std::env::args().nth(0).unwrap();
         let str2 = std::env::args().nth(0).unwrap();
 
-        let pool = Pool::new().run().unwrap();
+        let pool = Pool::new().unwrap();
         pool.push(fnn);
         pool.push(move || fnm(&mut str));
         pool.push(move || fno(str1));
@@ -307,14 +300,12 @@ mod tests {
 
     #[test]
     fn pool() {
-        let pool = Pool::new();
+        let pool = Pool::new().unwrap();
         assert!(Builder::num_cpus() >= 1);
-        assert_eq!(pool.threads_alive(), 0);
-        assert_eq!(pool.threads_waiting(), 0);
-        assert_eq!(*pool.as_builder().min_get(), Builder::num_cpus() + 1);
+        assert_eq!(*pool.as_builder().min_get(), Builder::min_default());
         assert_eq!(
             *pool.as_builder().max_get(),
-            (Builder::num_cpus() + 1) * Builder::num_cpus()
+            Builder::max_default()
         );
         assert_eq!(
             pool.as_builder().timeout_get(),
@@ -331,10 +322,9 @@ mod tests {
             pool.as_builder().daemon_get(),
             Some(&Duration::from_millis(TIME_OUT_MS))
         );
-        assert!(!pool.daemon_alive()); // not run, so
+        assert!(pool.daemon_alive());
         assert!(!pool.dropped());
 
-        let pool = pool.run().unwrap();
         let array = (0..33usize).into_iter().map(|i| (i, 0)).collect::<Vec<_>>();
 
         let map = Arc::new(Mutex::new(array));
@@ -359,10 +349,10 @@ mod tests {
 
         assert!(pool.threads_alive() > 0);
         assert!(pool.threads_waiting() > 0);
-        assert_eq!(*pool.as_builder().min_get(), Builder::num_cpus() + 1);
+        assert_eq!(*pool.as_builder().min_get(), Builder::min_default());
         assert_eq!(
             *pool.as_builder().max_get(),
-            (Builder::num_cpus() + 1) * Builder::num_cpus()
+            Builder::max_default()
         );
         assert_eq!(
             pool.as_builder().timeout_get(),
@@ -397,7 +387,7 @@ mod tests {
     }
     #[test]
     fn scope_fib() {
-        let pool = Pool::new().run().unwrap();
+        let pool = Pool::new().unwrap();
         let mut array = (0..33usize).into_iter().map(|i| (i, 0)).collect::<Vec<_>>();
 
         let mutex = Arc::new(Mutex::new(array.clone()));
@@ -419,7 +409,7 @@ mod tests {
     }
     #[test]
     fn scope_x2() {
-        let pool = Pool::new().run().unwrap();
+        let pool = Pool::new().unwrap();
         let mut array = (0..100usize).into_iter().map(|i| (i, 0)).collect::<Vec<_>>();
 
         let mutex = Arc::new(Mutex::new(array.clone()));

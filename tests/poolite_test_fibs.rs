@@ -28,7 +28,7 @@ fn fibm() {
         .daemon(None)
         .timeout(None)
         .load_limit(Builder::num_cpus() * Builder::num_cpus())
-        .run()
+        .build()
         .unwrap();
     let map = Arc::new(Mutex::new(BTreeMap::<i32, i32>::new()));
 

@@ -5,7 +5,7 @@ use std::sync::mpsc::{channel, Sender};
 
 /// `cargo run --example channel`
 fn main() {
-    let pool = Pool::new().run().unwrap();
+    let pool = Pool::new().unwrap();
     let (mp, sc) = channel();
     for i in 0..38 {
         let mp = mp.clone();

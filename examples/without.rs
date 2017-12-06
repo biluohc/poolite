@@ -3,7 +3,7 @@ use poolite::Pool;
 
 /// `cargo run --example without`
 fn main() {
-    let pool = Pool::new().run().unwrap();
+    let pool = Pool::new().unwrap();
     for i in 0..38 {
         pool.push(move || test(i));
     }

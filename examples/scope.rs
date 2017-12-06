@@ -3,7 +3,7 @@ use poolite::Pool;
 
 /// `cargo run --example without`
 fn main() {
-    let pool = Pool::new().run().unwrap();
+    let pool = Pool::new().unwrap();
     let mut array = (0..38).into_iter().map(|i| (i, 0)).collect::<Vec<_>>();
 
     pool.scoped(|scope| for i in array.iter_mut() {

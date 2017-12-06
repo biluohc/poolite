@@ -39,7 +39,7 @@ fn main() {
     .timeout(None) // Close timeout
     .name("Worker")
     .stack_size(1024*1024*2) //2Mib
-    .run()
+    .build()
     .unwrap();
 
     for i in 0..33 {
@@ -223,8 +223,8 @@ impl Builder {
     pub fn load_limit_get(&self) -> &usize {
         &self.load_limit
     }
-    pub fn run(self) -> Result<Pool, PoolError> {
-        Pool::with_builder(self).run()
+    pub fn build(self) -> Result<Pool, PoolError> {
+        Pool::with_builder(self)
     }
 }
 
